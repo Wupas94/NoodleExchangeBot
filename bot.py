@@ -414,6 +414,7 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
     # Przygotuj odpowiedni emoji i wiadomość
     emoji_map = {"plusy": "✅", "minusy": "❌", "upomnienia": "⚠️"}
     emoji = emoji_map.get(typ, "ℹ️")
+    typ_pojedynczy = {"plusy": "plus", "minusy": "minus", "upomnienia": "upomnienie"}.get(typ, typ)
 
     # Określ role do zarządzania
     if typ == "plusy":
@@ -452,9 +453,11 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
         zapisz_pracownikow()
         
         # Wyślij powiadomienie o osiągnięciu 3 punktów
-        await interaction.followup.send(f"{emoji} **{member.mention} osiągnął(a) 3 {typ}!**\n"
-                                      f"Powód ostatniego punktu: {powod}\n"
-                                      f"Licznik {typ} został wyzerowany.")
+        await interaction.followup.send(
+            f"{emoji} **{member.mention} osiągnął(a) 3 {typ}!**\n"
+            f"Powód ostatniego punktu: {powod}\n"
+            f"Licznik {typ} został wyzerowany."
+        )
 
         # Usuń rolę punktową po wyzerowaniu
         role = interaction.guild.get_role(role_ids[2])  # rola za 3 punkty
@@ -464,9 +467,11 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
         return True
     else:
         # Wyślij normalne powiadomienie
-        await interaction.followup.send(f"{emoji} Dodano {typ[:-1]} dla {member.mention}\n"
-                                      f"Powód: {powod}\n"
-                                      f"Aktualna liczba {typ}: {current_points}")
+        await interaction.followup.send(
+            f"{emoji} Dodano {typ_pojedynczy} dla {member.mention}\n"
+            f"Powód: {powod}\n"
+            f"Aktualna liczba {typ}: {current_points}"
+        )
         return False
 
 # Komenda do dodawania plusów
@@ -539,10 +544,31 @@ async def slash_minus(interaction: discord.Interaction, member: discord.Member, 
     member="Pracownik, któremu chcesz dodać upomnienie",
     powod="Powód przyznania upomnienia"
 )
-async def slash_upomnienie(interaction: discord.Interaction, member: discord.Member, powod: str = "Brak podanego powodu"):
-    osiagnieto_limit = await dodaj_punkt(interaction, member, "upomnienia", powod)
-    if osiagnieto_limit:
-        await interaction.followup.send(f"🚨 **UWAGA!** {member.mention} otrzymał(a) 3 upomnienia! Należy podjąć odpowiednie kroki dyscyplinarne!")
+async def slash_upomnienie(interaction: discord.Interaction, member: discord.Member, powod: str):
+    try:
+        # Sprawdź uprawnienia
+        if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
+            await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania upomnieniami!", ephemeral=True)
+            return
+
+        # Sprawdź czy pracownik jest zatrudniony
+        if not czy_jest_zatrudniony(member):
+            await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
+            return
+
+        # Dodaj upomnienie
+        osiagnieto_limit = await dodaj_punkt(interaction, member, "upomnienia", powod)
+        
+        # Jeśli osiągnięto limit 3 upomnień, wyślij dodatkowe powiadomienie
+        if osiagnieto_limit:
+            await interaction.followup.send(f"🚨 **UWAGA!** {member.mention} otrzymał(a) 3 upomnienia! Należy podjąć odpowiednie kroki dyscyplinarne!")
+            
+    except Exception as e:
+        print(f"Błąd podczas wykonywania komendy upomnienie: {str(e)}")
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
 
 # Komenda do awansowania pracowników
 @bot.tree.command(name="awansuj", description="Awansuje pracownika na nowe stanowisko")
