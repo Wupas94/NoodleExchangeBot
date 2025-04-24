@@ -426,13 +426,17 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
 
     try:
         # Usuń wszystkie role punktowe tego typu
+        roles_to_remove = []
         for role_id in role_ids:
             role = interaction.guild.get_role(role_id)
             if role and role in member.roles:
-                await member.remove_roles(role)
+                roles_to_remove.append(role)
+        
+        if roles_to_remove:
+            await member.remove_roles(*roles_to_remove)
 
-        # Dodaj odpowiednią rolę punktową
-        if current_points > 0 and current_points <= 3:
+        # Dodaj odpowiednią rolę punktową (tylko jeśli nie osiągnięto limitu)
+        if current_points > 0 and current_points <= 3 and not (current_points == 3):
             role = interaction.guild.get_role(role_ids[current_points - 1])
             if role:
                 await member.add_roles(role)
@@ -448,10 +452,6 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
     
     # Sprawdź czy osiągnięto 3 punkty
     if current_points >= 3:
-        # Wyzeruj licznik
-        pracownik[typ] = 0
-        zapisz_pracownikow()
-        
         # Wyślij powiadomienie o osiągnięciu 3 punktów
         await interaction.followup.send(
             f"{emoji} **{member.mention} osiągnął(a) 3 {typ}!**\n"
@@ -459,10 +459,23 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
             f"Licznik {typ} został wyzerowany."
         )
 
-        # Usuń rolę punktową po wyzerowaniu
-        role = interaction.guild.get_role(role_ids[2])  # rola za 3 punkty
-        if role and role in member.roles:
-            await member.remove_roles(role)
+        # Usuń wszystkie role punktowe tego typu
+        roles_to_remove = []
+        for role_id in role_ids:
+            role = interaction.guild.get_role(role_id)
+            if role and role in member.roles:
+                roles_to_remove.append(role)
+        
+        if roles_to_remove:
+            try:
+                await member.remove_roles(*roles_to_remove)
+                print(f"Usunięto role {[role.name for role in roles_to_remove]} dla {member.name}")
+            except Exception as e:
+                print(f"Błąd podczas usuwania ról: {str(e)}")
+
+        # Wyzeruj licznik
+        pracownik[typ] = 0
+        zapisz_pracownikow()
 
         return True
     else:
