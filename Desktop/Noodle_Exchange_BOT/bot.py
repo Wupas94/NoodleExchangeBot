@@ -284,7 +284,7 @@ async def slash_test(interaction: discord.Interaction):
 # Funkcja pomocnicza do sprawdzania czy użytkownik jest zatrudniony
 def czy_jest_zatrudniony(member: discord.Member) -> bool:
     """
-    Sprawdza czy użytkownik jest zatrudniony (ma jakąkolwiek rolę związaną z pracą)
+    Sprawdza czy użytkownik jest zatrudniony i automatycznie dodaje do bazy jeśli ma role
     """
     print(f"\n=== SZCZEGÓŁOWE SPRAWDZANIE ZATRUDNIENIA ===")
     print(f"Sprawdzam użytkownika: {member.name} (ID: {member.id})")
@@ -330,6 +330,32 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     
     ma_role_pracownicza = len(znalezione_role) > 0
     
+    # Jeśli użytkownik ma role pracownicze, ale nie ma go w bazie, dodaj go
+    if ma_role_pracownicza and str(member.id) not in pracownicy:
+        print("\nDodawanie użytkownika do bazy danych...")
+        # Znajdź najwyższą rolę użytkownika z listy ról pracowniczych
+        najwyzsza_rola = None
+        for role in reversed(member.roles):  # Przechodzimy od najwyższej roli
+            if role.id in ROLE_PRACOWNICZE:
+                najwyzsza_rola = role
+                break
+        
+        pracownicy[str(member.id)] = {
+            "nazwa": str(member),
+            "data_zatrudnienia": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+            "rola": najwyzsza_rola.name if najwyzsza_rola else "Pracownik",
+            "plusy": 0,
+            "minusy": 0,
+            "upomnienia": 0,
+            "ostrzezenia": [],
+            "historia_awansow": []
+        }
+        zapisz_pracownikow()
+        print(f"Dodano użytkownika {member.name} do bazy z rolą {najwyzsza_rola.name if najwyzsza_rola else 'Pracownik'}")
+    
+    # Sprawdź czy jest w bazie danych
+    jest_w_bazie = str(member.id) in pracownicy
+    
     print("\n=== PODSUMOWANIE ===")
     if ma_role_pracownicza:
         print("Znalezione role pracownicze:")
@@ -337,10 +363,11 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
             print(f"- {role.name} (ID: {role.id})")
     else:
         print("Nie znaleziono żadnej roli pracowniczej")
-    print(f"OSTATECZNY WYNIK: {'ZATRUDNIONY' if ma_role_pracownicza else 'NIEZATRUDNIONY'}")
+    print(f"Jest w bazie danych: {jest_w_bazie}")
+    print(f"OSTATECZNY WYNIK: {'ZATRUDNIONY' if ma_role_pracownicza or jest_w_bazie else 'NIEZATRUDNIONY'}")
     print("=" * 50)
     
-    return ma_role_pracownicza
+    return ma_role_pracownicza or jest_w_bazie
 
 # Komenda do zatrudniania pracowników
 @bot.tree.command(name="job", description="Zatrudnia nowego pracownika")
