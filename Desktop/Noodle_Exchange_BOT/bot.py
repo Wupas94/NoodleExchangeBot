@@ -437,8 +437,7 @@ class Kanaly:
 async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, typ: str, powod: str = None) -> bool:
     """
     Dodaje punkt (plus/minus/upomnienie) pracownikowi i zarządza rolami.
-    Sprawdza czy użytkownik ma rolę Pracownik.
-    Automatycznie inicjalizuje dane pracownika jeśli ma rolę ale nie jest w bazie.
+    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik i jest w bazie lub ma obie role).
     
     Args:
         interaction: Interakcja Discorda
@@ -455,10 +454,9 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
             await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania punktami!", ephemeral=True)
             return False
 
-        # Sprawdź czy pracownik ma rolę Pracownik
-        pracownik_role = interaction.guild.get_role(Role.PRACOWNIK)
-        if not pracownik_role or pracownik_role not in member.roles:
-            await interaction.response.send_message(f"❌ {member.mention} nie ma roli Pracownik!", ephemeral=True)
+        # Sprawdź czy pracownik jest zatrudniony
+        if not czy_jest_zatrudniony(member):
+            await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
             return False
 
         # Inicjalizuj dane pracownika jeśli nie istnieją
