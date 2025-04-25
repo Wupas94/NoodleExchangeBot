@@ -684,7 +684,7 @@ async def slash_awansuj(
             )
             return
 
-        # Sprawdź czy pracownik ma wymagane role bazowe
+        # Sprawdź czy pracownik ma rolę PRACOWNIK
         pracownik_role = interaction.guild.get_role(Role.PRACOWNIK)
         if not pracownik_role or pracownik_role not in member.roles:
             await interaction.followup.send(
@@ -697,20 +697,9 @@ async def slash_awansuj(
         if sciezka == "gastronomia":
             sciezka_awansu = SCIEZKA_GASTRONOMII
             nazwa_sciezki = "Gastronomia"
-            wymagana_rola_bazowa = Role.REKRUT
         else:  # ochrona
             sciezka_awansu = SCIEZKA_OCHRONY
             nazwa_sciezki = "Ochrona"
-            wymagana_rola_bazowa = Role.MLODSZY_OCHRONIARZ
-
-        # Sprawdź rolę bazową dla ścieżki
-        rola_bazowa = interaction.guild.get_role(wymagana_rola_bazowa)
-        if not rola_bazowa or rola_bazowa not in member.roles:
-            await interaction.followup.send(
-                f"❌ {member.mention} nie ma wymaganej roli bazowej dla ścieżki {nazwa_sciezki}!",
-                ephemeral=True
-            )
-            return
 
         # Sprawdź aktualną rolę użytkownika
         aktualna_rola = None
@@ -725,10 +714,21 @@ async def slash_awansuj(
 
         # Sprawdź czy awans jest możliwy
         if aktualny_poziom >= 0:  # Jeśli użytkownik ma jakąś rolę ze ścieżki
-            if poziom <= aktualny_poziom + 1:
+            if poziom <= aktualny_poziom:  # Zmienione z aktualny_poziom + 1
                 await interaction.followup.send(
-                    f"❌ {member.mention} jest już na poziomie {aktualny_poziom + 1} lub wyższym!\n"
-                    f"Aktualna rola: {aktualna_rola.name}",
+                    f"❌ {member.mention} jest już na poziomie {aktualny_poziom + 1}!\n"
+                    f"Aktualna rola: {aktualna_rola.name}\n"
+                    f"Nie można awansować na niższy lub ten sam poziom.",
+                    ephemeral=True
+                )
+                return
+            
+            # Sprawdź czy awans nie jest o więcej niż jeden poziom
+            if poziom > aktualny_poziom + 2:
+                await interaction.followup.send(
+                    f"❌ Nie można awansować o więcej niż jeden poziom!\n"
+                    f"Aktualny poziom: {aktualny_poziom + 1}\n"
+                    f"Próba awansu na poziom: {poziom}",
                     ephemeral=True
                 )
                 return
@@ -740,6 +740,24 @@ async def slash_awansuj(
                     ephemeral=True
                 )
                 return
+            
+            # Sprawdź rolę bazową tylko przy pierwszym awansie
+            if sciezka == "gastronomia":
+                rola_bazowa = interaction.guild.get_role(Role.REKRUT)
+                if not rola_bazowa or rola_bazowa not in member.roles:
+                    await interaction.followup.send(
+                        f"❌ {member.mention} nie ma roli Rekrut wymaganej do pierwszego awansu w gastronomii!",
+                        ephemeral=True
+                    )
+                    return
+            else:  # ochrona
+                rola_bazowa = interaction.guild.get_role(Role.MLODSZY_OCHRONIARZ)
+                if not rola_bazowa or rola_bazowa not in member.roles:
+                    await interaction.followup.send(
+                        f"❌ {member.mention} nie ma roli Młodszy Ochroniarz wymaganej do pierwszego awansu w ochronie!",
+                        ephemeral=True
+                    )
+                    return
 
         try:
             # Pobierz rolę do nadania
