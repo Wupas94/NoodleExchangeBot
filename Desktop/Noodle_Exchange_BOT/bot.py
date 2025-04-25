@@ -284,7 +284,7 @@ async def slash_test(interaction: discord.Interaction):
 # Funkcja pomocnicza do sprawdzania czy użytkownik jest zatrudniony
 def czy_jest_zatrudniony(member: discord.Member) -> bool:
     """
-    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik i jest w bazie danych)
+    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik LUB Rekrut, lub jest w bazie danych)
     """
     # Sprawdź czy użytkownik jest w bazie danych
     jest_w_bazie = str(member.id) in pracownicy
@@ -295,7 +295,7 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     
     ma_role = False
     if pracownik_role and rekrut_role:
-        ma_role = pracownik_role in member.roles and rekrut_role in member.roles
+        ma_role = pracownik_role in member.roles or rekrut_role in member.roles
     
     # Debugowanie
     print(f"\n=== Sprawdzanie zatrudnienia dla {member.name} ===")
