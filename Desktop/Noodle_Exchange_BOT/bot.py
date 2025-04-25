@@ -284,61 +284,63 @@ async def slash_test(interaction: discord.Interaction):
 # Funkcja pomocnicza do sprawdzania czy użytkownik jest zatrudniony
 def czy_jest_zatrudniony(member: discord.Member) -> bool:
     """
-    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik LUB Rekrut)
+    Sprawdza czy użytkownik jest zatrudniony (ma jakąkolwiek rolę związaną z pracą)
     """
     print(f"\n=== SZCZEGÓŁOWE SPRAWDZANIE ZATRUDNIENIA ===")
     print(f"Sprawdzam użytkownika: {member.name} (ID: {member.id})")
     
-    # Sprawdź role użytkownika
+    # Lista wszystkich ról związanych z pracą
+    ROLE_PRACOWNICZE = [
+        Role.REKRUT,
+        Role.PRACOWNIK,
+        Role.OCHRONA,
+        # Ścieżka Ochrony
+        Role.MLODSZY_OCHRONIARZ,
+        Role.OCHRONIARZ,
+        Role.OCHRONIARZ_LICENCJONOWANY,
+        Role.DOSWIADCZONY_OCHRONIARZ,
+        Role.STARSZY_OCHRONIARZ,
+        Role.SZKOLENIOWIEC_OCHRONY,
+        Role.EGZAMINATOR_OCHRONY,
+        Role.ASYSTENT_SZEFA_OCHRONY,
+        Role.ZASTEPCA_SZEFA_OCHRONY,
+        Role.SZEF_OCHRONY,
+        Role.NADZOR_OCHRONY,
+        # Ścieżka Gastronomii
+        Role.KELNER,
+        Role.ASYSTENT_KUCHARZA,
+        Role.KUCHARZ,
+        Role.SZEF_KUCHNI,
+        Role.OBSLUGA_BARU
+    ]
+    
     print("\nSPRAWDZANIE RÓL UŻYTKOWNIKA:")
     print(f"Wszystkie role użytkownika:")
     for role in member.roles:
         print(f"- {role.name} (ID: {role.id})")
     
-    # Sprawdź rolę Pracownik (po ID i nazwie)
-    pracownik_role = None
+    # Sprawdź czy użytkownik ma którąkolwiek z ról pracowniczych
+    znalezione_role = []
     for role in member.roles:
-        if (role.id == Role.PRACOWNIK or 
-            "pracownik" in role.name.lower() or 
-            "employee" in role.name.lower()):
-            pracownik_role = role
-            print(f"\nZnaleziono rolę Pracownik:")
+        if role.id in ROLE_PRACOWNICZE:
+            znalezione_role.append(role)
+            print(f"\nZnaleziono rolę pracowniczą:")
             print(f"- Nazwa: {role.name}")
             print(f"- ID: {role.id}")
-            print(f"- Porównanie ID: {role.id} == {Role.PRACOWNIK}")
-            break
     
-    # Sprawdź rolę Rekrut (po ID i nazwie)
-    rekrut_role = None
-    for role in member.roles:
-        if (role.id == Role.REKRUT or 
-            "rekrut" in role.name.lower() or 
-            "recruit" in role.name.lower()):
-            rekrut_role = role
-            print(f"\nZnaleziono rolę Rekrut:")
-            print(f"- Nazwa: {role.name}")
-            print(f"- ID: {role.id}")
-            print(f"- Porównanie ID: {role.id} == {Role.REKRUT}")
-            break
-    
-    print(f"\nSzukane role:")
-    print(f"Rola Pracownik (ID: {Role.PRACOWNIK}): {'ZNALEZIONO' if pracownik_role else 'NIE ZNALEZIONO'}")
-    if pracownik_role:
-        print(f"  Znaleziona rola: {pracownik_role.name} (ID: {pracownik_role.id})")
-    print(f"Rola Rekrut (ID: {Role.REKRUT}): {'ZNALEZIONO' if rekrut_role else 'NIE ZNALEZIONO'}")
-    if rekrut_role:
-        print(f"  Znaleziona rola: {rekrut_role.name} (ID: {rekrut_role.id})")
-    
-    # Sprawdź czy ma którąkolwiek z wymaganych ról
-    ma_wymagana_role = bool(pracownik_role or rekrut_role)
+    ma_role_pracownicza = len(znalezione_role) > 0
     
     print("\n=== PODSUMOWANIE ===")
-    print(f"Ma rolę Pracownik: {bool(pracownik_role)}")
-    print(f"Ma rolę Rekrut: {bool(rekrut_role)}")
-    print(f"OSTATECZNY WYNIK: {'ZATRUDNIONY' if ma_wymagana_role else 'NIEZATRUDNIONY'}")
+    if ma_role_pracownicza:
+        print("Znalezione role pracownicze:")
+        for role in znalezione_role:
+            print(f"- {role.name} (ID: {role.id})")
+    else:
+        print("Nie znaleziono żadnej roli pracowniczej")
+    print(f"OSTATECZNY WYNIK: {'ZATRUDNIONY' if ma_role_pracownicza else 'NIEZATRUDNIONY'}")
     print("=" * 50)
     
-    return ma_wymagana_role
+    return ma_role_pracownicza
 
 # Komenda do zatrudniania pracowników
 @bot.tree.command(name="job", description="Zatrudnia nowego pracownika")
