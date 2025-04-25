@@ -253,6 +253,19 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik)
     """
     pracownik_role = member.guild.get_role(Role.PRACOWNIK)
+    
+    # Debugowanie
+    print(f"\n=== Sprawdzanie zatrudnienia dla {member.name} ===")
+    print(f"ID użytkownika: {member.id}")
+    print(f"Role użytkownika: {[role.name for role in member.roles]}")
+    print(f"ID roli Pracownik: {Role.PRACOWNIK}")
+    print(f"Znaleziona rola Pracownik: {pracownik_role}")
+    if pracownik_role:
+        print(f"Czy ma rolę Pracownik: {pracownik_role in member.roles}")
+    else:
+        print("Nie znaleziono roli Pracownik na serwerze!")
+    print("=" * 50)
+    
     return pracownik_role in member.roles
 
 # Komenda do zatrudniania pracowników
