@@ -7,6 +7,7 @@ from enum import Enum
 import asyncio
 from dotenv import load_dotenv
 from datetime import datetime
+from typing import Literal
 
 # Load environment variables
 load_dotenv()
@@ -750,7 +751,7 @@ SCIEZKI_WYBORY = [
 async def slash_awansuj(
     interaction: discord.Interaction, 
     member: discord.Member, 
-    sciezka: app_commands.Choice[str],
+    sciezka: Literal["Ochrona", "Gastronomia", "Zarząd", "Zarząd Ochrony"],
     poziom: app_commands.Range[int, 1, 6]
 ):
     try:
@@ -766,10 +767,10 @@ async def slash_awansuj(
         await interaction.response.defer()
 
         # Walidacja parametrów
-        sciezka_value = sciezka.value
+        sciezka_value = sciezka.lower().replace(" ", "_")
         if sciezka_value not in ["ochrona", "gastronomia", "zarzad", "zarzad_ochrony"]:
             await interaction.followup.send(
-                "❌ Nieprawidłowa ścieżka! Wybierz 'ochrona', 'gastronomia', 'zarzad' lub 'zarzad_ochrony'.",
+                "❌ Nieprawidłowa ścieżka! Wybierz 'Ochrona', 'Gastronomia', 'Zarząd' lub 'Zarząd Ochrony'.",
                 ephemeral=True
             )
             return
@@ -1063,7 +1064,7 @@ async def slash_warn(interaction: discord.Interaction, member: discord.Member, p
 async def slash_degrad(
     interaction: discord.Interaction, 
     member: discord.Member,
-    sciezka: app_commands.Choice[str],
+    sciezka: Literal["Ochrona", "Gastronomia", "Zarząd", "Zarząd Ochrony"],
     poziom: app_commands.Range[int, 1, 6],
     powod: str
 ):
@@ -1080,10 +1081,10 @@ async def slash_degrad(
         await interaction.response.defer()
 
         # Walidacja parametrów
-        sciezka_value = sciezka.value
+        sciezka_value = sciezka.lower().replace(" ", "_")
         if sciezka_value not in ["ochrona", "gastronomia", "zarzad", "zarzad_ochrony"]:
             await interaction.followup.send(
-                "❌ Nieprawidłowa ścieżka! Wybierz 'ochrona', 'gastronomia', 'zarzad' lub 'zarzad_ochrony'.",
+                "❌ Nieprawidłowa ścieżka! Wybierz 'Ochrona', 'Gastronomia', 'Zarząd' lub 'Zarząd Ochrony'.",
                 ephemeral=True
             )
             return
