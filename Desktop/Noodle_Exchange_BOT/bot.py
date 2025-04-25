@@ -291,27 +291,42 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     
     # 1. Najpierw sprawdź role użytkownika
     print("\n1. SPRAWDZANIE RÓL UŻYTKOWNIKA:")
-    print(f"Wszystkie role użytkownika: {[f'{role.name} (ID: {role.id})' for role in member.roles]}")
+    print(f"Wszystkie role użytkownika:")
+    for role in member.roles:
+        print(f"- {role.name} (ID: {role.id})")
     
-    # Sprawdź rolę Pracownik
+    # Sprawdź rolę Pracownik (po ID i nazwie)
     pracownik_role = None
     for role in member.roles:
-        if role.id == Role.PRACOWNIK:
+        if role.id == Role.PRACOWNIK or role.name.lower() == "pracownik":
             pracownik_role = role
+            print(f"\nZnaleziono rolę Pracownik:")
+            print(f"- Nazwa: {role.name}")
+            print(f"- ID: {role.id}")
+            print(f"- Porównanie ID: {role.id} == {Role.PRACOWNIK}")
             break
     
-    # Sprawdź rolę Rekrut
+    # Sprawdź rolę Rekrut (po ID i nazwie)
     rekrut_role = None
     for role in member.roles:
-        if role.id == Role.REKRUT:
+        if role.id == Role.REKRUT or role.name.lower() == "rekrut":
             rekrut_role = role
+            print(f"\nZnaleziono rolę Rekrut:")
+            print(f"- Nazwa: {role.name}")
+            print(f"- ID: {role.id}")
+            print(f"- Porównanie ID: {role.id} == {Role.REKRUT}")
             break
     
-    print(f"Szukana rola Pracownik (ID: {Role.PRACOWNIK}): {'ZNALEZIONO' if pracownik_role else 'NIE ZNALEZIONO'}")
-    print(f"Szukana rola Rekrut (ID: {Role.REKRUT}): {'ZNALEZIONO' if rekrut_role else 'NIE ZNALEZIONO'}")
+    print(f"\nSzukane role:")
+    print(f"Rola Pracownik (ID: {Role.PRACOWNIK}): {'ZNALEZIONO' if pracownik_role else 'NIE ZNALEZIONO'}")
+    if pracownik_role:
+        print(f"  Znaleziona rola: {pracownik_role.name} (ID: {pracownik_role.id})")
+    print(f"Rola Rekrut (ID: {Role.REKRUT}): {'ZNALEZIONO' if rekrut_role else 'NIE ZNALEZIONO'}")
+    if rekrut_role:
+        print(f"  Znaleziona rola: {rekrut_role.name} (ID: {rekrut_role.id})")
     
     ma_wymagana_role = bool(pracownik_role or rekrut_role)
-    print(f"Czy ma wymaganą rolę: {ma_wymagana_role}")
+    print(f"\nCzy ma wymaganą rolę: {ma_wymagana_role}")
     
     # 2. Sprawdź bazę danych
     print("\n2. SPRAWDZANIE BAZY DANYCH:")
@@ -468,11 +483,6 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
         bool: True jeśli osiągnięto limit 3 punktów, False w przeciwnym razie
     """
     try:
-        # Sprawdź uprawnienia
-        if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
-            await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania punktami!", ephemeral=True)
-            return False
-
         # Sprawdź czy pracownik jest zatrudniony
         if not czy_jest_zatrudniony(member):
             await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
@@ -1246,6 +1256,23 @@ async def slash_test_uprawnienia(interaction: discord.Interaction):
     response += "\n".join([f"- {role}" for role in managing_roles])
     
     await interaction.followup.send(response, ephemeral=True)
+
+@bot.tree.command(name="sprawdz_role", description="Sprawdza ID ról na serwerze")
+async def slash_sprawdz_role(interaction: discord.Interaction):
+    """Sprawdza ID ról na serwerze"""
+    await interaction.response.defer(ephemeral=True)
+    
+    response = "📋 Lista ról na serwerze:\n\n"
+    for role in interaction.guild.roles:
+        response += f"• {role.name}: {role.id}\n"
+    
+    # Podziel odpowiedź na mniejsze części jeśli jest za długa
+    if len(response) > 1900:  # Discord ma limit 2000 znaków
+        parts = [response[i:i+1900] for i in range(0, len(response), 1900)]
+        for part in parts:
+            await interaction.followup.send(part, ephemeral=True)
+    else:
+        await interaction.followup.send(response, ephemeral=True)
 
 # Run the bot
 bot.run(os.getenv('DISCORD_TOKEN')) 
