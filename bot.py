@@ -283,23 +283,33 @@ async def slash_test(interaction: discord.Interaction):
 # Funkcja pomocnicza do sprawdzania czy użytkownik jest zatrudniony
 def czy_jest_zatrudniony(member: discord.Member) -> bool:
     """
-    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik)
+    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik i jest w bazie danych)
     """
+    # Sprawdź czy użytkownik jest w bazie danych
+    jest_w_bazie = str(member.id) in pracownicy
+    
+    # Sprawdź czy ma role
     pracownik_role = member.guild.get_role(Role.PRACOWNIK)
+    rekrut_role = member.guild.get_role(Role.REKRUT)
+    
+    ma_role = False
+    if pracownik_role and rekrut_role:
+        ma_role = pracownik_role in member.roles and rekrut_role in member.roles
     
     # Debugowanie
     print(f"\n=== Sprawdzanie zatrudnienia dla {member.name} ===")
     print(f"ID użytkownika: {member.id}")
     print(f"Role użytkownika: {[role.name for role in member.roles]}")
     print(f"ID roli Pracownik: {Role.PRACOWNIK}")
+    print(f"ID roli Rekrut: {Role.REKRUT}")
     print(f"Znaleziona rola Pracownik: {pracownik_role}")
-    if pracownik_role:
-        print(f"Czy ma rolę Pracownik: {pracownik_role in member.roles}")
-    else:
-        print("Nie znaleziono roli Pracownik na serwerze!")
+    print(f"Znaleziona rola Rekrut: {rekrut_role}")
+    print(f"Czy jest w bazie danych: {jest_w_bazie}")
+    print(f"Czy ma wymagane role: {ma_role}")
     print("=" * 50)
     
-    return pracownik_role in member.roles
+    # Użytkownik jest zatrudniony jeśli jest w bazie LUB ma wymagane role
+    return jest_w_bazie or ma_role
 
 # Komenda do zatrudniania pracowników
 @bot.tree.command(name="job", description="Zatrudnia nowego pracownika")
@@ -656,15 +666,6 @@ async def slash_awansuj(
             )
             return
 
-        # Sprawdź czy pracownik jest zatrudniony
-        if not czy_jest_zatrudniony(member):
-            await interaction.response.send_message(
-                f"❌ {member.mention} nie jest zatrudniony! Najpierw użyj komendy /job aby zatrudnić pracownika.\n"
-                f"Role pracownika: {', '.join([r.name for r in member.roles])}",
-                ephemeral=True
-            )
-            return
-
         await interaction.response.defer()
 
         # Walidacja parametrów
@@ -683,24 +684,66 @@ async def slash_awansuj(
             )
             return
 
-        if str(member.id) not in pracownicy:
+        # Sprawdź czy pracownik ma wymagane role bazowe
+        pracownik_role = interaction.guild.get_role(Role.PRACOWNIK)
+        if not pracownik_role or pracownik_role not in member.roles:
             await interaction.followup.send(
-                f"❌ {member.mention} nie jest zatrudniony!",
+                f"❌ {member.mention} nie ma roli Pracownik!",
                 ephemeral=True
             )
             return
 
         # Wybierz odpowiednią ścieżkę awansu
-        if sciezka == "ochrona":
-            sciezka_awansu = SCIEZKA_OCHRONY
-            nazwa_sciezki = "Ochrona"
-        elif sciezka == "gastronomia":
+        if sciezka == "gastronomia":
             sciezka_awansu = SCIEZKA_GASTRONOMII
             nazwa_sciezki = "Gastronomia"
+            wymagana_rola_bazowa = Role.REKRUT
+        else:  # ochrona
+            sciezka_awansu = SCIEZKA_OCHRONY
+            nazwa_sciezki = "Ochrona"
+            wymagana_rola_bazowa = Role.MLODSZY_OCHRONIARZ
+
+        # Sprawdź rolę bazową dla ścieżki
+        rola_bazowa = interaction.guild.get_role(wymagana_rola_bazowa)
+        if not rola_bazowa or rola_bazowa not in member.roles:
+            await interaction.followup.send(
+                f"❌ {member.mention} nie ma wymaganej roli bazowej dla ścieżki {nazwa_sciezki}!",
+                ephemeral=True
+            )
+            return
+
+        # Sprawdź aktualną rolę użytkownika
+        aktualna_rola = None
+        aktualny_poziom = -1
+        
+        for i, rola_id in enumerate(sciezka_awansu):
+            rola = interaction.guild.get_role(rola_id)
+            if rola and rola in member.roles:
+                aktualna_rola = rola
+                aktualny_poziom = i
+                break
+
+        # Sprawdź czy awans jest możliwy
+        if aktualny_poziom >= 0:  # Jeśli użytkownik ma jakąś rolę ze ścieżki
+            if poziom <= aktualny_poziom + 1:
+                await interaction.followup.send(
+                    f"❌ {member.mention} jest już na poziomie {aktualny_poziom + 1} lub wyższym!\n"
+                    f"Aktualna rola: {aktualna_rola.name}",
+                    ephemeral=True
+                )
+                return
+        else:  # Jeśli użytkownik nie ma żadnej roli ze ścieżki
+            if poziom > 1:  # Można awansować tylko na poziom 1
+                await interaction.followup.send(
+                    f"❌ {member.mention} nie ma żadnej roli ze ścieżki {nazwa_sciezki}!\n"
+                    "Można awansować tylko na poziom 1.",
+                    ephemeral=True
+                )
+                return
 
         try:
-            # Pobierz rolę do nadania (korygujemy indeksowanie)
-            poziom_index = poziom - 1  # Konwertuj poziom 1-6 na indeks 0-5
+            # Pobierz rolę do nadania
+            poziom_index = poziom - 1
             if poziom_index < 0 or poziom_index >= len(sciezka_awansu):
                 await interaction.followup.send(
                     f"❌ Nieprawidłowy poziom! Dostępne poziomy: 1-{len(sciezka_awansu)}",
@@ -731,6 +774,18 @@ async def slash_awansuj(
             print(f"Nadano rolę {nowa_rola.name} dla {member.name}")
             
             # Aktualizuj dane w systemie
+            if str(member.id) not in pracownicy:
+                pracownicy[str(member.id)] = {
+                    "nazwa": str(member),
+                    "data_zatrudnienia": str(interaction.created_at.strftime("%Y-%m-%d %H:%M:%S")),
+                    "rola": nowa_rola.name,
+                    "plusy": 0,
+                    "minusy": 0,
+                    "upomnienia": 0,
+                    "ostrzezenia": [],
+                    "historia_awansow": []
+                }
+            
             pracownicy[str(member.id)]["rola"] = nowa_rola.name
             pracownicy[str(member.id)]["historia_awansow"].append({
                 "data": str(interaction.created_at.strftime("%Y-%m-%d %H:%M:%S")),
