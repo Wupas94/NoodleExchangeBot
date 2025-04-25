@@ -1,0 +1,32 @@
+{
+    "377376144879648768": {
+        "nazwa": "wupas",
+        "data_zatrudnienia": "2025-04-23 19:47:19",
+        "rola": "🔦┇Doświadczony Ochroniarz",
+        "plusy": 2,
+        "minusy": 1,
+        "upomnienia": 1,
+        "historia_awansow": [
+            {
+                "data": "2025-04-23 19:47:19",
+                "rola": "Rekrut",
+                "awansujacy": "wupas"
+            },
+            {
+                "data": "2025-04-23 19:57:46",
+                "rola": "e",
+                "awansujacy": "wupas"
+            },
+            {
+                "data": "2025-04-23 19:58:13",
+                "rola": "<@&1364691790573338704>",
+                "awansujacy": "wupas"
+            },
+            {
+                "data": "2025-04-23 20:34:47",
+                "rola": "🔦┇Doświadczony Ochroniarz",
+                "awansujacy": "_03duszek03_"
+            }
+        ]
+    }
+}
