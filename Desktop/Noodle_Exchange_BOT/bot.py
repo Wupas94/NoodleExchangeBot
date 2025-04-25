@@ -284,13 +284,13 @@ async def slash_test(interaction: discord.Interaction):
 # Funkcja pomocnicza do sprawdzania czy użytkownik jest zatrudniony
 def czy_jest_zatrudniony(member: discord.Member) -> bool:
     """
-    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik LUB Rekrut, lub jest w bazie danych)
+    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik LUB Rekrut)
     """
     print(f"\n=== SZCZEGÓŁOWE SPRAWDZANIE ZATRUDNIENIA ===")
     print(f"Sprawdzam użytkownika: {member.name} (ID: {member.id})")
     
-    # 1. Najpierw sprawdź role użytkownika
-    print("\n1. SPRAWDZANIE RÓL UŻYTKOWNIKA:")
+    # Sprawdź role użytkownika
+    print("\nSPRAWDZANIE RÓL UŻYTKOWNIKA:")
     print(f"Wszystkie role użytkownika:")
     for role in member.roles:
         print(f"- {role.name} (ID: {role.id})")
@@ -329,26 +329,16 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     if rekrut_role:
         print(f"  Znaleziona rola: {rekrut_role.name} (ID: {rekrut_role.id})")
     
+    # Sprawdź czy ma którąkolwiek z wymaganych ról
     ma_wymagana_role = bool(pracownik_role or rekrut_role)
-    print(f"\nCzy ma wymaganą rolę: {ma_wymagana_role}")
     
-    # 2. Sprawdź bazę danych
-    print("\n2. SPRAWDZANIE BAZY DANYCH:")
-    jest_w_bazie = str(member.id) in pracownicy
-    print(f"Czy jest w bazie danych: {jest_w_bazie}")
-    if jest_w_bazie:
-        print(f"Dane z bazy: {pracownicy[str(member.id)]}")
-    
-    # 3. Podsumowanie
-    zatrudniony = ma_wymagana_role or jest_w_bazie
     print("\n=== PODSUMOWANIE ===")
     print(f"Ma rolę Pracownik: {bool(pracownik_role)}")
     print(f"Ma rolę Rekrut: {bool(rekrut_role)}")
-    print(f"Jest w bazie: {jest_w_bazie}")
-    print(f"OSTATECZNY WYNIK: {'ZATRUDNIONY' if zatrudniony else 'NIEZATRUDNIONY'}")
+    print(f"OSTATECZNY WYNIK: {'ZATRUDNIONY' if ma_wymagana_role else 'NIEZATRUDNIONY'}")
     print("=" * 50)
     
-    return zatrudniony
+    return ma_wymagana_role
 
 # Komenda do zatrudniania pracowników
 @bot.tree.command(name="job", description="Zatrudnia nowego pracownika")
