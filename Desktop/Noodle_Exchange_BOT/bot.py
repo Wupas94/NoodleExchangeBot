@@ -293,20 +293,27 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     pracownik_role = member.guild.get_role(Role.PRACOWNIK)
     rekrut_role = member.guild.get_role(Role.REKRUT)
     
-    ma_role = False
-    if pracownik_role and rekrut_role:
-        ma_role = pracownik_role in member.roles or rekrut_role in member.roles
+    # Sprawdź czy role zostały znalezione
+    if not pracownik_role:
+        print(f"BŁĄD: Nie znaleziono roli Pracownik (ID: {Role.PRACOWNIK})")
+    if not rekrut_role:
+        print(f"BŁĄD: Nie znaleziono roli Rekrut (ID: {Role.REKRUT})")
+    
+    # Sprawdź role użytkownika
+    ma_role_pracownik = pracownik_role and pracownik_role in member.roles
+    ma_role_rekrut = rekrut_role and rekrut_role in member.roles
+    ma_role = ma_role_pracownik or ma_role_rekrut
     
     # Debugowanie
-    print(f"\n=== Sprawdzanie zatrudnienia dla {member.name} ===")
-    print(f"ID użytkownika: {member.id}")
-    print(f"Role użytkownika: {[role.name for role in member.roles]}")
-    print(f"ID roli Pracownik: {Role.PRACOWNIK}")
-    print(f"ID roli Rekrut: {Role.REKRUT}")
-    print(f"Znaleziona rola Pracownik: {pracownik_role}")
-    print(f"Znaleziona rola Rekrut: {rekrut_role}")
+    print(f"\n=== Sprawdzanie zatrudnienia dla {member.name} (ID: {member.id}) ===")
+    print(f"Role użytkownika: {[f'{role.name} (ID: {role.id})' for role in member.roles]}")
+    print(f"Rola Pracownik (ID: {Role.PRACOWNIK}): {'Znaleziono' if pracownik_role else 'Nie znaleziono'}")
+    print(f"Rola Rekrut (ID: {Role.REKRUT}): {'Znaleziono' if rekrut_role else 'Nie znaleziono'}")
+    print(f"Czy ma rolę Pracownik: {ma_role_pracownik}")
+    print(f"Czy ma rolę Rekrut: {ma_role_rekrut}")
     print(f"Czy jest w bazie danych: {jest_w_bazie}")
     print(f"Czy ma wymagane role: {ma_role}")
+    print(f"WYNIK: {'ZATRUDNIONY' if (jest_w_bazie or ma_role) else 'NIEZATRUDNIONY'}")
     print("=" * 50)
     
     # Użytkownik jest zatrudniony jeśli jest w bazie LUB ma wymagane role
@@ -437,7 +444,7 @@ class Kanaly:
 async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, typ: str, powod: str = None) -> bool:
     """
     Dodaje punkt (plus/minus/upomnienie) pracownikowi i zarządza rolami.
-    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik i jest w bazie lub ma obie role).
+    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik LUB Rekrut, lub jest w bazie danych).
     
     Args:
         interaction: Interakcja Discorda
