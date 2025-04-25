@@ -298,7 +298,9 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     # Sprawdź rolę Pracownik (po ID i nazwie)
     pracownik_role = None
     for role in member.roles:
-        if role.id == Role.PRACOWNIK or role.name.lower() == "pracownik":
+        if (role.id == Role.PRACOWNIK or 
+            "pracownik" in role.name.lower() or 
+            "employee" in role.name.lower()):
             pracownik_role = role
             print(f"\nZnaleziono rolę Pracownik:")
             print(f"- Nazwa: {role.name}")
@@ -309,7 +311,9 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     # Sprawdź rolę Rekrut (po ID i nazwie)
     rekrut_role = None
     for role in member.roles:
-        if role.id == Role.REKRUT or role.name.lower() == "rekrut":
+        if (role.id == Role.REKRUT or 
+            "rekrut" in role.name.lower() or 
+            "recruit" in role.name.lower()):
             rekrut_role = role
             print(f"\nZnaleziono rolę Rekrut:")
             print(f"- Nazwa: {role.name}")
@@ -596,6 +600,11 @@ async def slash_plus(interaction: discord.Interaction, member: discord.Member, p
     """
     Dodaje plus pracownikowi i nadaje odpowiednią rangę.
     """
+    print(f"\n=== DODAWANIE PLUSA ===")
+    print(f"Użytkownik wykonujący: {interaction.user.name} (ID: {interaction.user.id})")
+    print(f"Cel: {member.name} (ID: {member.id})")
+    print(f"Powód: {powod}")
+    
     await dodaj_punkt(interaction, member, "plusy", powod)
 
 # Komenda do dodawania minusów
@@ -608,6 +617,11 @@ async def slash_minus(interaction: discord.Interaction, member: discord.Member, 
     """
     Dodaje minus pracownikowi i nadaje odpowiednią rangę.
     """
+    print(f"\n=== DODAWANIE MINUSA ===")
+    print(f"Użytkownik wykonujący: {interaction.user.name} (ID: {interaction.user.id})")
+    print(f"Cel: {member.name} (ID: {member.id})")
+    print(f"Powód: {powod}")
+    
     await dodaj_punkt(interaction, member, "minusy", powod)
 
 # Komenda do dodawania upomnień
