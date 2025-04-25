@@ -314,47 +314,63 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
         Role.OBSLUGA_BARU
     ]
     
-    print("\nSPRAWDZANIE RÓL UŻYTKOWNIKA:")
-    print(f"Wszystkie role użytkownika:")
+    print("\nROLE PRACOWNICZE W SYSTEMIE:")
+    for role_id in ROLE_PRACOWNICZE:
+        print(f"- ID: {role_id}")
+    
+    print("\nROLE UŻYTKOWNIKA:")
+    user_role_ids = [role.id for role in member.roles]
     for role in member.roles:
         print(f"- {role.name} (ID: {role.id})")
+        if role.id in ROLE_PRACOWNICZE:
+            print(f"  ✓ Ta rola jest na liście ról pracowniczych!")
+        else:
+            print(f"  ✗ Ta rola nie jest na liście ról pracowniczych")
     
     # Sprawdź czy użytkownik ma którąkolwiek z ról pracowniczych
     znalezione_role = []
     for role in member.roles:
-        if role.id in ROLE_PRACOWNICZE:
+        if int(role.id) in [int(r) for r in ROLE_PRACOWNICZE]:  # Konwertujemy na int dla pewności
             znalezione_role.append(role)
             print(f"\nZnaleziono rolę pracowniczą:")
             print(f"- Nazwa: {role.name}")
             print(f"- ID: {role.id}")
     
     ma_role_pracownicza = len(znalezione_role) > 0
+    print(f"\nCzy ma rolę pracowniczą: {ma_role_pracownicza}")
     
     # Jeśli użytkownik ma role pracownicze, ale nie ma go w bazie, dodaj go
-    if ma_role_pracownicza and str(member.id) not in pracownicy:
-        print("\nDodawanie użytkownika do bazy danych...")
-        # Znajdź najwyższą rolę użytkownika z listy ról pracowniczych
-        najwyzsza_rola = None
-        for role in reversed(member.roles):  # Przechodzimy od najwyższej roli
-            if role.id in ROLE_PRACOWNICZE:
-                najwyzsza_rola = role
-                break
-        
-        pracownicy[str(member.id)] = {
-            "nazwa": str(member),
-            "data_zatrudnienia": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-            "rola": najwyzsza_rola.name if najwyzsza_rola else "Pracownik",
-            "plusy": 0,
-            "minusy": 0,
-            "upomnienia": 0,
-            "ostrzezenia": [],
-            "historia_awansow": []
-        }
-        zapisz_pracownikow()
-        print(f"Dodano użytkownika {member.name} do bazy z rolą {najwyzsza_rola.name if najwyzsza_rola else 'Pracownik'}")
+    if ma_role_pracownicza:
+        print("\nSprawdzanie czy użytkownik jest w bazie...")
+        if str(member.id) not in pracownicy:
+            print("Użytkownik nie jest w bazie, dodaję...")
+            # Znajdź najwyższą rolę użytkownika z listy ról pracowniczych
+            najwyzsza_rola = None
+            for role in reversed(member.roles):
+                if int(role.id) in [int(r) for r in ROLE_PRACOWNICZE]:
+                    najwyzsza_rola = role
+                    break
+            
+            pracownicy[str(member.id)] = {
+                "nazwa": str(member),
+                "data_zatrudnienia": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                "rola": najwyzsza_rola.name if najwyzsza_rola else "Pracownik",
+                "plusy": 0,
+                "minusy": 0,
+                "upomnienia": 0,
+                "ostrzezenia": [],
+                "historia_awansow": []
+            }
+            zapisz_pracownikow()
+            print(f"✓ Dodano użytkownika {member.name} do bazy z rolą {najwyzsza_rola.name if najwyzsza_rola else 'Pracownik'}")
+        else:
+            print("Użytkownik jest już w bazie")
     
     # Sprawdź czy jest w bazie danych
     jest_w_bazie = str(member.id) in pracownicy
+    print(f"\nCzy jest w bazie danych: {jest_w_bazie}")
+    if jest_w_bazie:
+        print(f"Dane z bazy: {pracownicy[str(member.id)]}")
     
     print("\n=== PODSUMOWANIE ===")
     if ma_role_pracownicza:
