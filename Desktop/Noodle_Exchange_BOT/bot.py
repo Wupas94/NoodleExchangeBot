@@ -732,19 +732,21 @@ async def slash_upomnienie(interaction: discord.Interaction, member: discord.Mem
         else:
             await interaction.followup.send(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
 
-# Komenda do awansowania pracowników
+# Definicje ścieżek jako stałe
+SCIEZKI_WYBORY = [
+    app_commands.Choice(name="Ochrona", value="ochrona"),
+    app_commands.Choice(name="Gastronomia", value="gastronomia"),
+    app_commands.Choice(name="Zarząd", value="zarzad"),
+    app_commands.Choice(name="Zarząd Ochrony", value="zarzad_ochrony")
+]
+
 @bot.tree.command(name="awansuj", description="Awansuje pracownika na nowe stanowisko")
 @app_commands.describe(
     member="Pracownik do awansowania",
     sciezka="Ścieżka awansu",
     poziom="Poziom awansu (1-6, gdzie 1 to najniższy poziom)"
 )
-@app_commands.choices(sciezka=[
-    app_commands.Choice(name="Ochrona", value="ochrona"),
-    app_commands.Choice(name="Gastronomia", value="gastronomia"),
-    app_commands.Choice(name="Zarząd", value="zarzad"),
-    app_commands.Choice(name="Zarząd Ochrony", value="zarzad_ochrony")
-])
+@app_commands.choices(sciezka=SCIEZKI_WYBORY)
 async def slash_awansuj(
     interaction: discord.Interaction, 
     member: discord.Member, 
@@ -1057,12 +1059,7 @@ async def slash_warn(interaction: discord.Interaction, member: discord.Member, p
     poziom="Poziom na który chcesz zdegradować (1-6, gdzie 1 to najniższy poziom)",
     powod="Powód degradacji"
 )
-@app_commands.choices(sciezka=[
-    app_commands.Choice(name="Ochrona", value="ochrona"),
-    app_commands.Choice(name="Gastronomia", value="gastronomia"),
-    app_commands.Choice(name="Zarząd", value="zarzad"),
-    app_commands.Choice(name="Zarząd Ochrony", value="zarzad_ochrony")
-])
+@app_commands.choices(sciezka=SCIEZKI_WYBORY)
 async def slash_degrad(
     interaction: discord.Interaction, 
     member: discord.Member,
