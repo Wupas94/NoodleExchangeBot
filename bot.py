@@ -609,6 +609,14 @@ async def slash_awansuj(
             )
             return
 
+        # Sprawdź czy pracownik jest zatrudniony
+        if not czy_jest_zatrudniony(member):
+            await interaction.response.send_message(
+                f"❌ {member.mention} nie jest zatrudniony! Najpierw użyj komendy /job aby zatrudnić pracownika.",
+                ephemeral=True
+            )
+            return
+
         await interaction.response.defer()
 
         # Walidacja parametrów
