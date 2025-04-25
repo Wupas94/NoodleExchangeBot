@@ -334,14 +334,29 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
         if role.id in ROLE_PRACOWNICZE:
             print(f"  ✓ Ta rola jest na liście ról pracowniczych!")
         else:
-            print(f"  ✗ Ta rola nie jest na liście ról pracowniczych")
+            # Sprawdź czy nazwa roli wskazuje na rolę pracowniczą
+            role_name_lower = role.name.lower()
+            if any(keyword in role_name_lower for keyword in ["ochrona", "pracownik", "rekrut", "technik", "menadzer", "kierownik"]):
+                print(f"  ✓ Ta rola ma nazwę wskazującą na rolę pracowniczą!")
+            else:
+                print(f"  ✗ Ta rola nie jest na liście ról pracowniczych")
     
-    # Sprawdź czy użytkownik ma którąkolwiek z ról pracowniczych
+    # Sprawdź czy użytkownik ma którąkolwiek z ról pracowniczych (po ID lub nazwie)
     znalezione_role = []
     for role in member.roles:
-        if int(role.id) in [int(r) for r in ROLE_PRACOWNICZE]:  # Konwertujemy na int dla pewności
+        # Sprawdź ID roli
+        if int(role.id) in [int(r) for r in ROLE_PRACOWNICZE]:
             znalezione_role.append(role)
-            print(f"\nZnaleziono rolę pracowniczą:")
+            print(f"\nZnaleziono rolę pracowniczą (po ID):")
+            print(f"- Nazwa: {role.name}")
+            print(f"- ID: {role.id}")
+            continue
+            
+        # Sprawdź nazwę roli
+        role_name_lower = role.name.lower()
+        if any(keyword in role_name_lower for keyword in ["ochrona", "pracownik", "rekrut", "technik", "menadzer", "kierownik"]):
+            znalezione_role.append(role)
+            print(f"\nZnaleziono rolę pracowniczą (po nazwie):")
             print(f"- Nazwa: {role.name}")
             print(f"- ID: {role.id}")
     
@@ -354,16 +369,15 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
         if str(member.id) not in pracownicy:
             print("Użytkownik nie jest w bazie, dodaję...")
             # Znajdź najwyższą rolę użytkownika z listy ról pracowniczych
-            najwyzsza_rola = None
-            for role in reversed(member.roles):
-                if int(role.id) in [int(r) for r in ROLE_PRACOWNICZE]:
-                    najwyzsza_rola = role
-                    break
+            najwyzsza_rola = znalezione_role[0]  # Bierzemy pierwszą znalezioną rolę
+            for role in reversed(znalezione_role):  # Sprawdzamy od końca (wyższe role są później)
+                najwyzsza_rola = role
+                break
             
             pracownicy[str(member.id)] = {
                 "nazwa": str(member),
                 "data_zatrudnienia": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                "rola": najwyzsza_rola.name if najwyzsza_rola else "Pracownik",
+                "rola": najwyzsza_rola.name,
                 "plusy": 0,
                 "minusy": 0,
                 "upomnienia": 0,
@@ -371,7 +385,7 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
                 "historia_awansow": []
             }
             zapisz_pracownikow()
-            print(f"✓ Dodano użytkownika {member.name} do bazy z rolą {najwyzsza_rola.name if najwyzsza_rola else 'Pracownik'}")
+            print(f"✓ Dodano użytkownika {member.name} do bazy z rolą {najwyzsza_rola.name}")
         else:
             print("Użytkownik jest już w bazie")
     
