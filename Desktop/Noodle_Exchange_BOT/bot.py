@@ -286,38 +286,50 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     """
     Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik LUB Rekrut, lub jest w bazie danych)
     """
-    # Sprawdź czy użytkownik jest w bazie danych
+    print(f"\n=== SZCZEGÓŁOWE SPRAWDZANIE ZATRUDNIENIA ===")
+    print(f"Sprawdzam użytkownika: {member.name} (ID: {member.id})")
+    
+    # 1. Najpierw sprawdź role użytkownika
+    print("\n1. SPRAWDZANIE RÓL UŻYTKOWNIKA:")
+    print(f"Wszystkie role użytkownika: {[f'{role.name} (ID: {role.id})' for role in member.roles]}")
+    
+    # Sprawdź rolę Pracownik
+    pracownik_role = None
+    for role in member.roles:
+        if role.id == Role.PRACOWNIK:
+            pracownik_role = role
+            break
+    
+    # Sprawdź rolę Rekrut
+    rekrut_role = None
+    for role in member.roles:
+        if role.id == Role.REKRUT:
+            rekrut_role = role
+            break
+    
+    print(f"Szukana rola Pracownik (ID: {Role.PRACOWNIK}): {'ZNALEZIONO' if pracownik_role else 'NIE ZNALEZIONO'}")
+    print(f"Szukana rola Rekrut (ID: {Role.REKRUT}): {'ZNALEZIONO' if rekrut_role else 'NIE ZNALEZIONO'}")
+    
+    ma_wymagana_role = bool(pracownik_role or rekrut_role)
+    print(f"Czy ma wymaganą rolę: {ma_wymagana_role}")
+    
+    # 2. Sprawdź bazę danych
+    print("\n2. SPRAWDZANIE BAZY DANYCH:")
     jest_w_bazie = str(member.id) in pracownicy
-    
-    # Sprawdź czy ma role
-    pracownik_role = member.guild.get_role(Role.PRACOWNIK)
-    rekrut_role = member.guild.get_role(Role.REKRUT)
-    
-    # Sprawdź czy role zostały znalezione
-    if not pracownik_role:
-        print(f"BŁĄD: Nie znaleziono roli Pracownik (ID: {Role.PRACOWNIK})")
-    if not rekrut_role:
-        print(f"BŁĄD: Nie znaleziono roli Rekrut (ID: {Role.REKRUT})")
-    
-    # Sprawdź role użytkownika
-    ma_role_pracownik = pracownik_role and pracownik_role in member.roles
-    ma_role_rekrut = rekrut_role and rekrut_role in member.roles
-    ma_role = ma_role_pracownik or ma_role_rekrut
-    
-    # Debugowanie
-    print(f"\n=== Sprawdzanie zatrudnienia dla {member.name} (ID: {member.id}) ===")
-    print(f"Role użytkownika: {[f'{role.name} (ID: {role.id})' for role in member.roles]}")
-    print(f"Rola Pracownik (ID: {Role.PRACOWNIK}): {'Znaleziono' if pracownik_role else 'Nie znaleziono'}")
-    print(f"Rola Rekrut (ID: {Role.REKRUT}): {'Znaleziono' if rekrut_role else 'Nie znaleziono'}")
-    print(f"Czy ma rolę Pracownik: {ma_role_pracownik}")
-    print(f"Czy ma rolę Rekrut: {ma_role_rekrut}")
     print(f"Czy jest w bazie danych: {jest_w_bazie}")
-    print(f"Czy ma wymagane role: {ma_role}")
-    print(f"WYNIK: {'ZATRUDNIONY' if (jest_w_bazie or ma_role) else 'NIEZATRUDNIONY'}")
+    if jest_w_bazie:
+        print(f"Dane z bazy: {pracownicy[str(member.id)]}")
+    
+    # 3. Podsumowanie
+    zatrudniony = ma_wymagana_role or jest_w_bazie
+    print("\n=== PODSUMOWANIE ===")
+    print(f"Ma rolę Pracownik: {bool(pracownik_role)}")
+    print(f"Ma rolę Rekrut: {bool(rekrut_role)}")
+    print(f"Jest w bazie: {jest_w_bazie}")
+    print(f"OSTATECZNY WYNIK: {'ZATRUDNIONY' if zatrudniony else 'NIEZATRUDNIONY'}")
     print("=" * 50)
     
-    # Użytkownik jest zatrudniony jeśli jest w bazie LUB ma wymagane role
-    return jest_w_bazie or ma_role
+    return zatrudniony
 
 # Komenda do zatrudniania pracowników
 @bot.tree.command(name="job", description="Zatrudnia nowego pracownika")
