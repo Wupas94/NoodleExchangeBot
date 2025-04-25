@@ -438,6 +438,7 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
     """
     Dodaje punkt (plus/minus/upomnienie) pracownikowi i zarządza rolami.
     Sprawdza czy użytkownik ma rolę Pracownik.
+    Automatycznie inicjalizuje dane pracownika jeśli ma rolę ale nie jest w bazie.
     
     Args:
         interaction: Interakcja Discorda
@@ -459,6 +460,20 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
         if not pracownik_role or pracownik_role not in member.roles:
             await interaction.response.send_message(f"❌ {member.mention} nie ma roli Pracownik!", ephemeral=True)
             return False
+
+        # Inicjalizuj dane pracownika jeśli nie istnieją
+        if str(member.id) not in pracownicy:
+            pracownicy[str(member.id)] = {
+                "nazwa": str(member),
+                "data_zatrudnienia": str(interaction.created_at.strftime("%Y-%m-%d %H:%M:%S")),
+                "rola": "Pracownik",
+                "plusy": 0,
+                "minusy": 0,
+                "upomnienia": 0,
+                "ostrzezenia": [],
+                "historia_awansow": []
+            }
+            zapisz_pracownikow()
 
         # Określ role na podstawie typu punktów
         if typ == "plusy":
@@ -486,14 +501,6 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
             if role in member.roles:
                 current_level = level
                 break
-
-        # Inicjalizuj dane pracownika jeśli nie istnieją
-        if str(member.id) not in pracownicy:
-            pracownicy[str(member.id)] = {
-                "plusy": 0,
-                "minusy": 0,
-                "upomnienia": 0
-            }
 
         # Ustaw liczbę punktów na podstawie aktualnego poziomu
         pracownicy[str(member.id)][typ] = current_level
@@ -529,6 +536,7 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
         if nowy_poziom >= 3:
             # Wyzeruj punkty
             pracownicy[str(member.id)][typ] = 0
+            zapisz_pracownikow()
             
             # Wyślij odpowiednie powiadomienie
             if typ == "plusy":
@@ -540,6 +548,7 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
             
             return True
 
+        zapisz_pracownikow()
         return False
 
     except Exception as e:
