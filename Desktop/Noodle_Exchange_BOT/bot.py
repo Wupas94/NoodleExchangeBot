@@ -291,6 +291,21 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
     
     # Lista wszystkich ról związanych z pracą
     ROLE_PRACOWNICZE = [
+        # Role zarządzające
+        Role.NADZOR_PRACY,
+        Role.WLASCICIEL_FIRMY,
+        Role.ZASTEPCA_SZEFA,
+        Role.MENADZER,
+        Role.KIEROWNIK,
+        Role.ASYSTENT_KIEROWNIKA,
+        Role.TECHNIK,
+        Role.NADZOR_OCHRONY,
+        Role.SZEF_OCHRONY,
+        Role.ZASTEPCA_SZEFA_OCHRONY,
+        Role.ASYSTENT_SZEFA_OCHRONY,
+        Role.EGZAMINATOR_OCHRONY,
+        Role.SZKOLENIOWIEC_OCHRONY,
+        # Role podstawowe
         Role.REKRUT,
         Role.PRACOWNIK,
         Role.OCHRONA,
@@ -300,12 +315,6 @@ def czy_jest_zatrudniony(member: discord.Member) -> bool:
         Role.OCHRONIARZ_LICENCJONOWANY,
         Role.DOSWIADCZONY_OCHRONIARZ,
         Role.STARSZY_OCHRONIARZ,
-        Role.SZKOLENIOWIEC_OCHRONY,
-        Role.EGZAMINATOR_OCHRONY,
-        Role.ASYSTENT_SZEFA_OCHRONY,
-        Role.ZASTEPCA_SZEFA_OCHRONY,
-        Role.SZEF_OCHRONY,
-        Role.NADZOR_OCHRONY,
         # Ścieżka Gastronomii
         Role.KELNER,
         Role.ASYSTENT_KUCHARZA,
