@@ -4,6 +4,11 @@ from discord.ext import commands
 import json
 import os
 from enum import Enum
+import asyncio
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Konfiguracja intencji bota
 intents = discord.Intents.default()
@@ -11,6 +16,7 @@ intents.message_content = True  # Pozwala na czytanie treści wiadomości
 intents.members = True         # Pozwala na dostęp do informacji o członkach serwera
 intents.guilds = True         # Pozwala na dostęp do informacji o serwerze
 intents.guild_messages = True  # Pozwala na czytanie wiadomości na serwerze
+intents.messages = True
 
 # Tworzenie instancji bota
 class CustomBot(commands.Bot):
@@ -133,6 +139,9 @@ ROLE_ZARZADZAJACE = [
 # Słownik do przechowywania pracowników (w pamięci)
 pracownicy = {}
 
+# Dictionary to store message information
+messages_to_delete = {}
+
 # Funkcja do zapisywania danych pracowników do pliku
 def zapisz_pracownikow():
     try:
@@ -230,6 +239,30 @@ async def on_ready():
     
     print('-------------------')
     print('Bot jest gotowy do użycia!')
+
+@bot.event
+async def on_message(message):
+    # Sprawdź, czy wiadomość została wysłana przez bota
+    if message.author == bot.user:
+        # Zapisz ID wiadomości i czas utworzenia
+        messages_to_delete[message.id] = {
+            "channel_id": message.channel.id,
+            "timestamp": message.created_at
+        }
+
+        # Usuń wiadomość po 12 godzinach
+        await asyncio.sleep(12 * 60 * 60)  # 12 godzin w sekundach
+        try:
+            channel = bot.get_channel(message.channel.id)
+            await channel.delete_messages([discord.Object(id=message.id)])
+            print(f"Usunięto wiadomość o ID: {message.id}")
+        except discord.errors.NotFound:
+            print(f"Wiadomość o ID: {message.id} nie istnieje lub została już usunięta.")
+        except Exception as e:
+            print(f"Wystąpił błąd podczas usuwania wiadomości: {e}")
+
+    # Przetwarzaj inne wiadomości
+    await bot.process_commands(message)
 
 # Event do logowania błędów
 @bot.event
@@ -617,7 +650,8 @@ async def slash_awansuj(
         # Sprawdź uprawnienia
         if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
             await interaction.response.send_message(
-                "❌ Nie masz uprawnień do awansowania pracowników!", 
+                "❌ Nie masz uprawnień do awansowania pracowników!\n"
+                "Wymagana jest jedna z ról zarządzających lub uprawnienia administratora.", 
                 ephemeral=True
             )
             return
@@ -625,7 +659,8 @@ async def slash_awansuj(
         # Sprawdź czy pracownik jest zatrudniony
         if not czy_jest_zatrudniony(member):
             await interaction.response.send_message(
-                f"❌ {member.mention} nie jest zatrudniony! Najpierw użyj komendy /job aby zatrudnić pracownika.",
+                f"❌ {member.mention} nie jest zatrudniony! Najpierw użyj komendy /job aby zatrudnić pracownika.\n"
+                f"Role pracownika: {', '.join([r.name for r in member.roles])}",
                 ephemeral=True
             )
             return
@@ -664,11 +699,23 @@ async def slash_awansuj(
             nazwa_sciezki = "Gastronomia"
 
         try:
-            # Pobierz rolę do nadania
-            nowa_rola_id = sciezka_awansu[poziom]
+            # Pobierz rolę do nadania (korygujemy indeksowanie)
+            poziom_index = poziom - 1  # Konwertuj poziom 1-6 na indeks 0-5
+            if poziom_index < 0 or poziom_index >= len(sciezka_awansu):
+                await interaction.followup.send(
+                    f"❌ Nieprawidłowy poziom! Dostępne poziomy: 1-{len(sciezka_awansu)}",
+                    ephemeral=True
+                )
+                return
+
+            nowa_rola_id = sciezka_awansu[poziom_index]
             nowa_rola = interaction.guild.get_role(nowa_rola_id)
             if not nowa_rola:
-                await interaction.followup.send(f"❌ Nie mogę znaleźć roli dla poziomu {poziom}!")
+                await interaction.followup.send(
+                    f"❌ Nie mogę znaleźć roli dla poziomu {poziom}!\n"
+                    f"ID roli: {nowa_rola_id}",
+                    ephemeral=True
+                )
                 return
 
             # Usuń stare role ze ścieżki
@@ -677,9 +724,11 @@ async def slash_awansuj(
                     rola = interaction.guild.get_role(rola_id)
                     if rola and rola in member.roles:
                         await member.remove_roles(rola)
+                        print(f"Usunięto rolę {rola.name} dla {member.name}")
 
             # Nadaj nową rolę
             await member.add_roles(nowa_rola)
+            print(f"Nadano rolę {nowa_rola.name} dla {member.name}")
             
             # Aktualizuj dane w systemie
             pracownicy[str(member.id)]["rola"] = nowa_rola.name
@@ -696,16 +745,21 @@ async def slash_awansuj(
                 f"✅ Pomyślnie awansowano {member.mention}!\n"
                 f"Ścieżka: {nazwa_sciezki}\n"
                 f"Nowa rola: {nowa_rola.name}\n"
-                f"Poziom: {poziom}/6"
+                f"Poziom: {poziom}/{len(sciezka_awansu)}"
             )
                 
         except discord.Forbidden:
             await interaction.followup.send(
                 "❌ Bot nie ma uprawnień do zarządzania rolami!\n"
-                "Upewnij się, że rola bota jest wyżej w hierarchii niż role, które próbuje nadawać."
+                "Upewnij się, że rola bota jest wyżej w hierarchii niż role, które próbuje nadawać.",
+                ephemeral=True
             )
         except Exception as e:
-            await interaction.followup.send(f"❌ Wystąpił błąd podczas zarządzania rolami: {str(e)}")
+            await interaction.followup.send(
+                f"❌ Wystąpił błąd podczas zarządzania rolami: {str(e)}\n"
+                f"Szczegóły błędu zostały zapisane w logach.",
+                ephemeral=True
+            )
             print(f"Błąd podczas zarządzania rolami: {str(e)}")
             
     except Exception as e:
@@ -713,7 +767,7 @@ async def slash_awansuj(
         if not interaction.response.is_done():
             await interaction.response.send_message(error_msg, ephemeral=True)
         else:
-            await interaction.followup.send(error_msg)
+            await interaction.followup.send(error_msg, ephemeral=True)
         print(f"Błąd podczas wykonywania komendy awansuj: {str(e)}")
 
 # Komenda do wyświetlania historii pracownika
@@ -1016,19 +1070,5 @@ async def slash_test_uprawnienia(interaction: discord.Interaction):
     
     await interaction.followup.send(response, ephemeral=True)
 
-# Wczytaj token ze zmiennej środowiskowej
-print("=== Inicjalizacja bota ===")
-TOKEN = os.environ.get('DISCORD_TOKEN')
-
-if not TOKEN:
-    print("❌ BŁĄD: Nie znaleziono tokenu w zmiennej środowiskowej DISCORD_TOKEN!")
-    print("\nDostępne zmienne środowiskowe:")
-    for key in os.environ.keys():
-        print(f"- {key}")
-    exit(1)
-
-print("✅ Token został wczytany pomyślnie!")
-print("🚀 Uruchamianie bota...")
-
-# Uruchomienie bota
-bot.run(TOKEN) 
+# Run the bot
+bot.run(os.getenv('DISCORD_TOKEN')) 

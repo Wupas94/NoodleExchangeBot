@@ -1,65 +1,39 @@
-# Noodle Exchange BOT
+# Discord Auto-Delete Bot
 
-Bot Discord do zarządzania pracownikami i systemem punktowym.
+A Discord bot that automatically deletes its own messages after 12 hours.
 
-## Funkcje
+## Features
 
-- System zatrudniania pracowników (`/job`)
-- System punktowy (plusy, minusy, upomnienia)
-- System awansów i degradacji
-- Historia pracowników
-- System ostrzeżeń
+- Automatically deletes bot's messages after 12 hours
+- Simple and efficient message tracking
+- Error handling for message deletion
 
-## Wymagania
+## Setup
 
-- Python 3.8+
-- discord.py 2.0+
-- Uprawnienia bota na Discord:
-  - Zarządzanie rolami
-  - Wysyłanie wiadomości
-  - Zarządzanie wiadomościami
-  - Wyświetlanie członków serwera
+1. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Instalacja
+2. Create a `.env` file in the root directory and add your Discord bot token:
+   ```
+   DISCORD_TOKEN=your_bot_token_here
+   ```
 
-1. Sklonuj repozytorium:
-```bash
-git clone https://github.com/twojuser/Noodle_Exchange_BOT.git
-cd Noodle_Exchange_BOT
-```
+3. Make sure your bot has the following permissions:
+   - Manage Messages
+   - Read Messages/View Channels
+   - Send Messages
 
-2. Zainstaluj wymagane pakiety:
-```bash
-pip install -r requirements.txt
-```
+## Running the Bot
 
-3. Utwórz plik `.env` i dodaj token bota:
-```env
-DISCORD_TOKEN=twoj_token_bota
-```
-
-4. Uruchom bota:
+Run the bot using:
 ```bash
 python bot.py
 ```
 
-## Konfiguracja
+## Notes
 
-1. W pliku `bot.py` znajdziesz klasę `Role` - zaktualizuj ID ról zgodnie z Twoim serwerem
-2. Dostosuj uprawnienia do zarządzania w zmiennej `ROLE_ZARZADZAJACE`
-
-## Komendy
-
-- `/job @użytkownik` - zatrudnia nowego pracownika
-- `/plus @użytkownik powód` - dodaje plus
-- `/minus @użytkownik powód` - dodaje minus
-- `/upomnienie @użytkownik powód` - dodaje upomnienie
-- `/warn @użytkownik powód` - dodaje ostrzeżenie
-- `/historia @użytkownik` - wyświetla historię pracownika
-- `/awansuj @użytkownik ścieżka poziom` - awansuje pracownika
-- `/degrad @użytkownik powód` - degraduje pracownika
-- `/zwolnij @użytkownik powód` - zwalnia pracownika
-
-## Licencja
-
-MIT 
+- The bot will only delete messages that are less than 14 days old (Discord API limitation)
+- Messages are tracked in memory, so they will be lost if the bot restarts
+- Make sure to keep your bot token secure and never share it publicly 
