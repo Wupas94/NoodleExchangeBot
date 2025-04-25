@@ -943,83 +943,197 @@ async def slash_warn(interaction: discord.Interaction, member: discord.Member, p
 @bot.tree.command(name="degrad", description="Degraduje pracownika na niższy poziom")
 @app_commands.describe(
     member="Pracownik do zdegradowania",
+    sciezka="Ścieżka awansu",
+    poziom="Poziom na który chcesz zdegradować (1-6, gdzie 1 to najniższy poziom)",
     powod="Powód degradacji"
 )
-async def slash_degrad(interaction: discord.Interaction, member: discord.Member, powod: str):
-    if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
-        await interaction.response.send_message("❌ Nie masz uprawnień do degradowania pracowników!", ephemeral=True)
-        return
+@app_commands.choices(sciezka=[
+    app_commands.Choice(name="Ochrona", value="ochrona"),
+    app_commands.Choice(name="Gastronomia", value="gastronomia")
+])
+async def slash_degrad(
+    interaction: discord.Interaction, 
+    member: discord.Member,
+    sciezka: str,
+    poziom: app_commands.Range[int, 1, 6],
+    powod: str
+):
+    try:
+        # Sprawdź uprawnienia
+        if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
+            await interaction.response.send_message(
+                "❌ Nie masz uprawnień do degradowania pracowników!\n"
+                "Wymagana jest jedna z ról zarządzających lub uprawnienia administratora.", 
+                ephemeral=True
+            )
+            return
 
-    await interaction.response.defer()
+        await interaction.response.defer()
 
-    if not czy_jest_zatrudniony(member):
-        await interaction.followup.send(f"❌ {member.mention} nie jest zatrudniony!")
-        return
+        # Walidacja parametrów
+        sciezka = sciezka.lower()
+        if sciezka not in ["ochrona", "gastronomia"]:
+            await interaction.followup.send(
+                "❌ Nieprawidłowa ścieżka! Wybierz 'ochrona' lub 'gastronomia'.",
+                ephemeral=True
+            )
+            return
 
-    # Znajdź obecną rolę pracownika w ścieżkach awansu
-    current_role = None
-    current_path = None
-    current_index = -1
+        if poziom < 1 or poziom > 6:
+            await interaction.followup.send(
+                "❌ Poziom degradacji musi być między 1 a 6!",
+                ephemeral=True
+            )
+            return
 
-    # Sprawdź ścieżkę ochrony
-    for i, role_id in enumerate(SCIEZKA_OCHRONY):
-        role = interaction.guild.get_role(role_id)
-        if role and role in member.roles:
-            current_role = role
-            current_path = SCIEZKA_OCHRONY
-            current_index = i
-            break
+        # Sprawdź czy pracownik ma rolę PRACOWNIK
+        pracownik_role = interaction.guild.get_role(Role.PRACOWNIK)
+        if not pracownik_role or pracownik_role not in member.roles:
+            await interaction.followup.send(
+                f"❌ {member.mention} nie ma roli Pracownik!",
+                ephemeral=True
+            )
+            return
 
-    # Sprawdź ścieżkę gastronomii
-    if current_role is None:
-        for i, role_id in enumerate(SCIEZKA_GASTRONOMII):
-            role = interaction.guild.get_role(role_id)
-            if role and role in member.roles:
-                current_role = role
-                current_path = SCIEZKA_GASTRONOMII
-                current_index = i
+        # Wybierz odpowiednią ścieżkę
+        if sciezka == "gastronomia":
+            sciezka_awansu = SCIEZKA_GASTRONOMII
+            nazwa_sciezki = "Gastronomia"
+            rola_bazowa = interaction.guild.get_role(Role.REKRUT)
+        else:  # ochrona
+            sciezka_awansu = SCIEZKA_OCHRONY
+            nazwa_sciezki = "Ochrona"
+            rola_bazowa = interaction.guild.get_role(Role.MLODSZY_OCHRONIARZ)
+
+        # Sprawdź aktualną rolę użytkownika
+        aktualna_rola = None
+        aktualny_poziom = -1
+        
+        for i, rola_id in enumerate(sciezka_awansu):
+            rola = interaction.guild.get_role(rola_id)
+            if rola and rola in member.roles:
+                aktualna_rola = rola
+                aktualny_poziom = i
                 break
 
-    if current_role is None or current_index <= 0:
-        await interaction.followup.send(f"❌ Nie można zdegradować {member.mention} - nie znaleziono odpowiedniej roli lub jest już na najniższym poziomie!")
-        return
+        # Sprawdź czy degradacja jest możliwa
+        if aktualny_poziom == -1:
+            await interaction.followup.send(
+                f"❌ {member.mention} nie ma żadnej roli ze ścieżki {nazwa_sciezki}!",
+                ephemeral=True
+            )
+            return
 
-    try:
-        # Usuń obecną rolę
-        await member.remove_roles(current_role)
-        
-        # Nadaj niższą rolę
-        new_role = interaction.guild.get_role(current_path[current_index - 1])
-        await member.add_roles(new_role)
-        
-        # Aktualizuj dane w systemie
-        pracownicy[str(member.id)]["rola"] = new_role.name
-        pracownicy[str(member.id)]["historia_awansow"].append({
-            "data": str(interaction.created_at.strftime("%Y-%m-%d %H:%M:%S")),
-            "rola": new_role.name,
-            "awansujacy": str(interaction.user),
-            "typ": "degradacja",
-            "powod": powod
-        })
-        
-        zapisz_pracownikow()
+        if poziom >= aktualny_poziom + 1:
+            await interaction.followup.send(
+                f"❌ Nie można degradować na wyższy lub ten sam poziom!\n"
+                f"Aktualny poziom: {aktualny_poziom + 1}\n"
+                f"Próba degradacji na poziom: {poziom}",
+                ephemeral=True
+            )
+            return
 
-        # Wyślij potwierdzenie
-        embed = discord.Embed(
-            title="⬇️ Degradacja",
-            description=f"Pracownik {member.mention} został zdegradowany",
-            color=0xff0000
-        )
-        embed.add_field(name="Nowa rola", value=new_role.name, inline=False)
-        embed.add_field(name="Powód", value=powod, inline=False)
-        embed.add_field(name="Od", value=interaction.user.mention, inline=False)
-        
-        await interaction.followup.send(embed=embed)
-        
-    except discord.Forbidden:
-        await interaction.followup.send("❌ Bot nie ma uprawnień do zarządzania rolami!")
+        if poziom < aktualny_poziom:
+            if poziom < aktualny_poziom - 1:
+                await interaction.followup.send(
+                    f"❌ Nie można degradować o więcej niż jeden poziom!\n"
+                    f"Aktualny poziom: {aktualny_poziom + 1}\n"
+                    f"Próba degradacji na poziom: {poziom}",
+                    ephemeral=True
+                )
+                return
+
+        try:
+            # Pobierz rolę do nadania
+            poziom_index = poziom - 1
+            if poziom_index < 0 or poziom_index >= len(sciezka_awansu):
+                await interaction.followup.send(
+                    f"❌ Nieprawidłowy poziom! Dostępne poziomy: 1-{len(sciezka_awansu)}",
+                    ephemeral=True
+                )
+                return
+
+            nowa_rola_id = sciezka_awansu[poziom_index]
+            nowa_rola = interaction.guild.get_role(nowa_rola_id)
+            if not nowa_rola:
+                await interaction.followup.send(
+                    f"❌ Nie mogę znaleźć roli dla poziomu {poziom}!\n"
+                    f"ID roli: {nowa_rola_id}",
+                    ephemeral=True
+                )
+                return
+
+            # Usuń stare role ze ścieżki (oprócz roli bazowej)
+            for rola_id in sciezka_awansu:
+                if rola_id != nowa_rola_id:  # nie usuwaj nowej roli, jeśli już ją ma
+                    rola = interaction.guild.get_role(rola_id)
+                    if rola and rola in member.roles:
+                        await member.remove_roles(rola)
+                        print(f"Usunięto rolę {rola.name} dla {member.name}")
+
+            # Nadaj nową rolę
+            await member.add_roles(nowa_rola)
+            print(f"Nadano rolę {nowa_rola.name} dla {member.name}")
+
+            # Upewnij się, że użytkownik ma rolę bazową
+            if rola_bazowa and rola_bazowa not in member.roles:
+                await member.add_roles(rola_bazowa)
+                print(f"Przywrócono rolę bazową {rola_bazowa.name} dla {member.name}")
+            
+            # Aktualizuj dane w systemie
+            if str(member.id) not in pracownicy:
+                pracownicy[str(member.id)] = {
+                    "nazwa": str(member),
+                    "data_zatrudnienia": str(interaction.created_at.strftime("%Y-%m-%d %H:%M:%S")),
+                    "rola": nowa_rola.name,
+                    "plusy": 0,
+                    "minusy": 0,
+                    "upomnienia": 0,
+                    "ostrzezenia": [],
+                    "historia_awansow": []
+                }
+            
+            pracownicy[str(member.id)]["rola"] = nowa_rola.name
+            pracownicy[str(member.id)]["historia_awansow"].append({
+                "data": str(interaction.created_at.strftime("%Y-%m-%d %H:%M:%S")),
+                "rola": nowa_rola.name,
+                "awansujacy": str(interaction.user),
+                "typ": "degradacja",
+                "powod": powod
+            })
+            
+            zapisz_pracownikow()
+
+            # Wyślij potwierdzenie
+            await interaction.followup.send(
+                f"⬇️ Pomyślnie zdegradowano {member.mention}!\n"
+                f"Ścieżka: {nazwa_sciezki}\n"
+                f"Nowa rola: {nowa_rola.name}\n"
+                f"Poziom: {poziom}/{len(sciezka_awansu)}\n"
+                f"Powód: {powod}"
+            )
+                
+        except discord.Forbidden:
+            await interaction.followup.send(
+                "❌ Bot nie ma uprawnień do zarządzania rolami!\n"
+                "Upewnij się, że rola bota jest wyżej w hierarchii niż role, które próbuje nadawać.",
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.followup.send(
+                f"❌ Wystąpił błąd podczas zarządzania rolami: {str(e)}\n"
+                f"Szczegóły błędu zostały zapisane w logach.",
+                ephemeral=True
+            )
+            print(f"Błąd podczas zarządzania rolami: {str(e)}")
+            
     except Exception as e:
-        await interaction.followup.send(f"❌ Wystąpił błąd: {str(e)}")
+        error_msg = f"❌ Wystąpił błąd: {str(e)}"
+        if not interaction.response.is_done():
+            await interaction.response.send_message(error_msg, ephemeral=True)
+        else:
+            await interaction.followup.send(error_msg, ephemeral=True)
+        print(f"Błąd podczas wykonywania komendy degrad: {str(e)}")
 
 # Ulepszona komenda do zwalniania pracowników
 @bot.tree.command(name="zwolnij", description="Zwalnia pracownika")
