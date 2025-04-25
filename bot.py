@@ -1063,13 +1063,10 @@ async def slash_degrad(
                 )
                 return
 
-            # Usuń stare role ze ścieżki (oprócz roli bazowej)
-            for rola_id in sciezka_awansu:
-                if rola_id != nowa_rola_id:  # nie usuwaj nowej roli, jeśli już ją ma
-                    rola = interaction.guild.get_role(rola_id)
-                    if rola and rola in member.roles:
-                        await member.remove_roles(rola)
-                        print(f"Usunięto rolę {rola.name} dla {member.name}")
+            # Usuń tylko aktualną rolę
+            if aktualna_rola:
+                await member.remove_roles(aktualna_rola)
+                print(f"Usunięto rolę {aktualna_rola.name} dla {member.name}")
 
             # Nadaj nową rolę
             await member.add_roles(nowa_rola)
