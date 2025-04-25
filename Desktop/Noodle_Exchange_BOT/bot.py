@@ -750,7 +750,7 @@ SCIEZKI_WYBORY = [
 async def slash_awansuj(
     interaction: discord.Interaction, 
     member: discord.Member, 
-    sciezka: str,
+    sciezka: app_commands.Choice[str],
     poziom: app_commands.Range[int, 1, 6]
 ):
     try:
@@ -766,8 +766,8 @@ async def slash_awansuj(
         await interaction.response.defer()
 
         # Walidacja parametrów
-        sciezka = sciezka.lower()
-        if sciezka not in ["ochrona", "gastronomia", "zarzad", "zarzad_ochrony"]:
+        sciezka_value = sciezka.value
+        if sciezka_value not in ["ochrona", "gastronomia", "zarzad", "zarzad_ochrony"]:
             await interaction.followup.send(
                 "❌ Nieprawidłowa ścieżka! Wybierz 'ochrona', 'gastronomia', 'zarzad' lub 'zarzad_ochrony'.",
                 ephemeral=True
@@ -782,7 +782,7 @@ async def slash_awansuj(
             return
 
         # Sprawdź czy pracownik ma wymaganą rolę bazową
-        if sciezka == "zarzad_ochrony":
+        if sciezka_value == "zarzad_ochrony":
             rola_bazowa = interaction.guild.get_role(Role.OCHRONA)
             if not rola_bazowa or rola_bazowa not in member.roles:
                 await interaction.followup.send(
@@ -800,13 +800,13 @@ async def slash_awansuj(
                 return
 
         # Wybierz odpowiednią ścieżkę awansu
-        if sciezka == "gastronomia":
+        if sciezka_value == "gastronomia":
             sciezka_awansu = SCIEZKA_GASTRONOMII
             nazwa_sciezki = "Gastronomia"
-        elif sciezka == "zarzad":
+        elif sciezka_value == "zarzad":
             sciezka_awansu = SCIEZKA_ZARZADU
             nazwa_sciezki = "Zarząd"
-        elif sciezka == "zarzad_ochrony":
+        elif sciezka_value == "zarzad_ochrony":
             sciezka_awansu = SCIEZKA_ZARZADU_OCHRONY
             nazwa_sciezki = "Zarząd Ochrony"
         else:  # ochrona
@@ -854,7 +854,7 @@ async def slash_awansuj(
                 return
             
             # Sprawdź rolę bazową tylko przy pierwszym awansie
-            if sciezka == "gastronomia":
+            if sciezka_value == "gastronomia":
                 rola_bazowa = interaction.guild.get_role(Role.REKRUT)
                 if not rola_bazowa or rola_bazowa not in member.roles:
                     await interaction.followup.send(
@@ -1063,7 +1063,7 @@ async def slash_warn(interaction: discord.Interaction, member: discord.Member, p
 async def slash_degrad(
     interaction: discord.Interaction, 
     member: discord.Member,
-    sciezka: str,
+    sciezka: app_commands.Choice[str],
     poziom: app_commands.Range[int, 1, 6],
     powod: str
 ):
@@ -1080,8 +1080,8 @@ async def slash_degrad(
         await interaction.response.defer()
 
         # Walidacja parametrów
-        sciezka = sciezka.lower()
-        if sciezka not in ["ochrona", "gastronomia", "zarzad", "zarzad_ochrony"]:
+        sciezka_value = sciezka.value
+        if sciezka_value not in ["ochrona", "gastronomia", "zarzad", "zarzad_ochrony"]:
             await interaction.followup.send(
                 "❌ Nieprawidłowa ścieżka! Wybierz 'ochrona', 'gastronomia', 'zarzad' lub 'zarzad_ochrony'.",
                 ephemeral=True
@@ -1105,15 +1105,15 @@ async def slash_degrad(
             return
 
         # Wybierz odpowiednią ścieżkę
-        if sciezka == "gastronomia":
+        if sciezka_value == "gastronomia":
             sciezka_awansu = SCIEZKA_GASTRONOMII
             nazwa_sciezki = "Gastronomia"
             rola_bazowa = interaction.guild.get_role(Role.REKRUT)
-        elif sciezka == "zarzad":
+        elif sciezka_value == "zarzad":
             sciezka_awansu = SCIEZKA_ZARZADU
             nazwa_sciezki = "Zarząd"
             rola_bazowa = interaction.guild.get_role(Role.PRACOWNIK)
-        elif sciezka == "zarzad_ochrony":
+        elif sciezka_value == "zarzad_ochrony":
             sciezka_awansu = SCIEZKA_ZARZADU_OCHRONY
             nazwa_sciezki = "Zarząd Ochrony"
             rola_bazowa = interaction.guild.get_role(Role.OCHRONA)
