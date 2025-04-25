@@ -6,6 +6,7 @@ import os
 from enum import Enum
 import asyncio
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -433,114 +434,119 @@ class Kanaly:
     LOGI_PUNKTY = 1234567890  # ID kanału do logowania punktów
     LOGI_AWANSE = 1234567890  # ID kanału do logowania awansów
 
-async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, typ: str, powod: str) -> bool:
+async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, typ: str, powod: str = None) -> bool:
     """
-    Dodaje punkt określonego typu (plus/minus/upomnienie) pracownikowi.
-    Zwraca True jeśli osiągnięto 3 punkty.
+    Dodaje punkt (plus/minus/upomnienie) pracownikowi i zarządza rolami.
+    Sprawdza istniejące role przed dodaniem punktu.
+    
+    Args:
+        interaction: Interakcja Discorda
+        member: Członek serwera, któremu dodajemy punkt
+        typ: Typ punktu ('plusy', 'minusy', 'upomnienia')
+        powod: Powód dodania punktu
+        
+    Returns:
+        bool: True jeśli osiągnięto limit 3 punktów, False w przeciwnym razie
     """
-    if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
-        await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania punktami!", ephemeral=True)
-        return False
-
-    if not czy_jest_zatrudniony(member):
-        await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
-        return False
-
-    await interaction.response.defer()
-
-    # Upewnij się, że pracownik jest w bazie danych
-    if str(member.id) not in pracownicy:
-        pracownicy[str(member.id)] = {
-            "nazwa": str(member),
-            "data_zatrudnienia": str(interaction.created_at.strftime("%Y-%m-%d %H:%M:%S")),
-            "rola": "Pracownik",
-            "plusy": 0,
-            "minusy": 0,
-            "upomnienia": 0,
-            "ostrzezenia": [],
-            "historia_awansow": []
-        }
-    
-    pracownik = pracownicy[str(member.id)]
-    
-    # Dodaj punkt odpowiedniego typu
-    pracownik[typ] += 1
-    current_points = pracownik[typ]
-    
-    # Przygotuj odpowiedni emoji i wiadomość
-    emoji_map = {"plusy": "✅", "minusy": "❌", "upomnienia": "⚠️"}
-    emoji = emoji_map.get(typ, "ℹ️")
-    typ_pojedynczy = {"plusy": "plus", "minusy": "minus", "upomnienia": "upomnienie"}.get(typ, typ)
-
-    # Określ role do zarządzania
-    if typ == "plusy":
-        role_ids = [Role.PLUS1, Role.PLUS2, Role.PLUS3]
-    elif typ == "minusy":
-        role_ids = [Role.MINUS1, Role.MINUS2, Role.MINUS3]
-    else:  # upomnienia
-        role_ids = [Role.UPOMNIENIE1, Role.UPOMNIENIE2, Role.UPOMNIENIE3]
-
     try:
-        # Usuń wszystkie role punktowe tego typu
-        roles_to_remove = []
-        for role_id in role_ids:
-            role = interaction.guild.get_role(role_id)
-            if role and role in member.roles:
-                roles_to_remove.append(role)
-        
-        if roles_to_remove:
-            await member.remove_roles(*roles_to_remove)
+        # Sprawdź uprawnienia
+        if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
+            await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania punktami!", ephemeral=True)
+            return False
 
-        # Dodaj odpowiednią rolę punktową (tylko jeśli nie osiągnięto limitu)
-        if current_points > 0 and current_points <= 3 and not (current_points == 3):
-            role = interaction.guild.get_role(role_ids[current_points - 1])
-            if role:
-                await member.add_roles(role)
-    except discord.Forbidden:
-        await interaction.followup.send("❌ Bot nie ma uprawnień do zarządzania rolami!")
+        # Sprawdź czy pracownik istnieje w systemie
+        if not czy_jest_zatrudniony(member):
+            await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
+            return False
+
+        # Określ role na podstawie typu punktów
+        if typ == "plusy":
+            role_levels = {
+                1: discord.utils.get(interaction.guild.roles, name="1/3 ⭐"),
+                2: discord.utils.get(interaction.guild.roles, name="2/3 ⭐"),
+                3: discord.utils.get(interaction.guild.roles, name="3/3 ⭐")
+            }
+        elif typ == "minusy":
+            role_levels = {
+                1: discord.utils.get(interaction.guild.roles, name="1/3 ❌"),
+                2: discord.utils.get(interaction.guild.roles, name="2/3 ❌"),
+                3: discord.utils.get(interaction.guild.roles, name="3/3 ❌")
+            }
+        else:
+            role_levels = {
+                1: discord.utils.get(interaction.guild.roles, name="1/3 ⚠️"),
+                2: discord.utils.get(interaction.guild.roles, name="2/3 ⚠️"),
+                3: discord.utils.get(interaction.guild.roles, name="3/3 ⚠️")
+            }
+
+        # Sprawdź aktualny poziom na podstawie ról
+        current_level = 0
+        for level, role in role_levels.items():
+            if role in member.roles:
+                current_level = level
+                break
+
+        # Inicjalizuj dane pracownika jeśli nie istnieją
+        if str(member.id) not in pracownicy:
+            pracownicy[str(member.id)] = {
+                "plusy": 0,
+                "minusy": 0,
+                "upomnienia": 0
+            }
+
+        # Ustaw liczbę punktów na podstawie aktualnego poziomu
+        pracownicy[str(member.id)][typ] = current_level
+
+        # Dodaj nowy punkt
+        pracownicy[str(member.id)][typ] += 1
+        nowy_poziom = pracownicy[str(member.id)][typ]
+
+        # Usuń stare role
+        for role in role_levels.values():
+            if role in member.roles:
+                await member.remove_roles(role)
+
+        # Dodaj nową rolę jeśli nie przekroczono limitu
+        if nowy_poziom <= 3:
+            await member.add_roles(role_levels[nowy_poziom])
+            
+            # Przygotuj odpowiednie emoji i tekst
+            emoji_map = {"plusy": "⭐", "minusy": "❌", "upomnienia": "⚠️"}
+            emoji = emoji_map.get(typ, "")
+            
+            # Wyślij powiadomienie
+            if powod:
+                await interaction.response.send_message(
+                    f"{emoji} {member.mention} otrzymał(a) punkt ({nowy_poziom}/3)\nPowód: {powod}"
+                )
+            else:
+                await interaction.response.send_message(
+                    f"{emoji} {member.mention} otrzymał(a) punkt ({nowy_poziom}/3)"
+                )
+
+        # Jeśli osiągnięto limit 3 punktów
+        if nowy_poziom >= 3:
+            # Wyzeruj punkty
+            pracownicy[str(member.id)][typ] = 0
+            
+            # Wyślij odpowiednie powiadomienie
+            if typ == "plusy":
+                await interaction.followup.send(f"🎉 **Gratulacje!** {member.mention} otrzymał(a) 3 plusy! To świetny wynik!")
+            elif typ == "minusy":
+                await interaction.followup.send(f"⚠️ **UWAGA!** {member.mention} otrzymał(a) 3 minusy! Rozważ podjęcie odpowiednich działań.")
+            else:
+                await interaction.followup.send(f"⛔ **UWAGA!** {member.mention} otrzymał(a) 3 upomnienia! Konieczne jest podjęcie działań!")
+            
+            return True
+
         return False
+
     except Exception as e:
-        await interaction.followup.send(f"❌ Wystąpił błąd podczas zarządzania rolami: {str(e)}")
-        return False
-    
-    # Zapisz zmiany
-    zapisz_pracownikow()
-    
-    # Sprawdź czy osiągnięto 3 punkty
-    if current_points >= 3:
-        # Wyślij powiadomienie o osiągnięciu 3 punktów
-        await interaction.followup.send(
-            f"{emoji} **{member.mention} osiągnął(a) 3 {typ}!**\n"
-            f"Powód ostatniego punktu: {powod}\n"
-            f"Licznik {typ} został wyzerowany."
-        )
-
-        # Usuń wszystkie role punktowe tego typu
-        roles_to_remove = []
-        for role_id in role_ids:
-            role = interaction.guild.get_role(role_id)
-            if role and role in member.roles:
-                roles_to_remove.append(role)
-        
-        if roles_to_remove:
-            try:
-                await member.remove_roles(*roles_to_remove)
-                print(f"Usunięto role {[role.name for role in roles_to_remove]} dla {member.name}")
-            except Exception as e:
-                print(f"Błąd podczas usuwania ról: {str(e)}")
-
-        # Wyzeruj licznik
-        pracownik[typ] = 0
-        zapisz_pracownikow()
-
-        return True
-    else:
-        # Wyślij normalne powiadomienie
-        await interaction.followup.send(
-            f"{emoji} Dodano {typ_pojedynczy} dla {member.mention}\n"
-            f"Powód: {powod}\n"
-            f"Aktualna liczba {typ}: {current_points}"
-        )
+        print(f"Błąd podczas dodawania punktu: {str(e)}")
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"Wystąpił błąd podczas dodawania punktu: {str(e)}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"Wystąpił błąd podczas dodawania punktu: {str(e)}", ephemeral=True)
         return False
 
 # Komenda do dodawania plusów
@@ -550,30 +556,10 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
     powod="Powód przyznania plusa"
 )
 async def slash_plus(interaction: discord.Interaction, member: discord.Member, powod: str):
-    try:
-        # Sprawdź uprawnienia
-        if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
-            await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania plusami!", ephemeral=True)
-            return
-
-        # Sprawdź czy pracownik istnieje w systemie
-        if str(member.id) not in pracownicy:
-            await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
-            return
-
-        # Dodaj plus
-        osiagnieto_limit = await dodaj_punkt(interaction, member, "plusy", powod)
-        
-        # Jeśli osiągnięto limit 3 plusów, wyślij dodatkowe powiadomienie
-        if osiagnieto_limit:
-            await interaction.followup.send(f"🎉 **Gratulacje!** {member.mention} otrzymał(a) 3 plusy! To świetny wynik!")
-            
-    except Exception as e:
-        print(f"Błąd podczas wykonywania komendy plus: {str(e)}")
-        if not interaction.response.is_done():
-            await interaction.response.send_message(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
-        else:
-            await interaction.followup.send(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
+    """
+    Dodaje plus pracownikowi i nadaje odpowiednią rangę.
+    """
+    await dodaj_punkt(interaction, member, "plusy", powod)
 
 # Komenda do dodawania minusów
 @bot.tree.command(name="minus", description="Dodaje minus pracownikowi")
@@ -582,30 +568,10 @@ async def slash_plus(interaction: discord.Interaction, member: discord.Member, p
     powod="Powód przyznania minusa"
 )
 async def slash_minus(interaction: discord.Interaction, member: discord.Member, powod: str):
-    try:
-        # Sprawdź uprawnienia
-        if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
-            await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania minusami!", ephemeral=True)
-            return
-
-        # Sprawdź czy pracownik istnieje w systemie
-        if str(member.id) not in pracownicy:
-            await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
-            return
-
-        # Dodaj minus
-        osiagnieto_limit = await dodaj_punkt(interaction, member, "minusy", powod)
-        
-        # Jeśli osiągnięto limit 3 minusów, wyślij dodatkowe powiadomienie
-        if osiagnieto_limit:
-            await interaction.followup.send(f"⚠️ **UWAGA!** {member.mention} otrzymał(a) 3 minusy! Rozważ podjęcie odpowiednich działań.")
-            
-    except Exception as e:
-        print(f"Błąd podczas wykonywania komendy minus: {str(e)}")
-        if not interaction.response.is_done():
-            await interaction.response.send_message(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
-        else:
-            await interaction.followup.send(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
+    """
+    Dodaje minus pracownikowi i nadaje odpowiednią rangę.
+    """
+    await dodaj_punkt(interaction, member, "minusy", powod)
 
 # Komenda do dodawania upomnień
 @bot.tree.command(name="upomnienie", description="Dodaje upomnienie pracownikowi")
