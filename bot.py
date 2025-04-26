@@ -28,10 +28,8 @@ class CustomBot(commands.Bot):
     async def setup_hook(self):
         print("Rozpoczynam setup hook...")
         # Lista ID serwerów
-        GUILD_IDS = [
-            1021373051272704130,  # Pierwszy serwer
-            1364669344180863088   # Drugi serwer
-        ]
+        GUILD_ID = 1021373051272704130
+        GUILD_OBJ = discord.Object(id=GUILD_ID)
         
         # Przygotowanie komend dla wszystkich serwerów
         for guild_id in GUILD_IDS:
