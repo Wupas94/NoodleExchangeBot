@@ -69,7 +69,7 @@ SCIEZKA_OCHRONY = [Role.REKRUT, Role.MLODSZY_OCHRONIARZ, Role.OCHRONIARZ, Role.O
 SCIEZKA_GASTRONOMII = [Role.REKRUT, Role.KELNER, Role.ASYSTENT_KUCHARZA, Role.KUCHARZ, Role.SZEF_KUCHNI, Role.OBSLUGA_BARU]
 SCIEZKA_ZARZADU = [Role.REKRUT, Role.PRACOWNIK, Role.ASYSTENT_KIEROWNIKA, Role.KIEROWNIK, Role.MENADZER, Role.ZASTEPCA_SZEFA]
 SCIEZKA_ZARZADU_OCHRONY = [Role.OCHRONA, Role.SZKOLENIOWIEC_OCHRONY, Role.EGZAMINATOR_OCHRONY, Role.ASYSTENT_SZEFA_OCHRONY, Role.ZASTEPCA_SZEFA_OCHRONY, Role.SZEF_OCHRONY]
-SCIEZKI_MAP = {"ochrona": SCIEZKA_OCHRONY, "gastronomia": SCIEZKA_GASTRONOMII, "zarzad": SCIEZKA_ZARZADU, "zarzad_ochrony": SCIEZKA_ZARZADU_OCHRONY}
+SCIEZKI_MAP = {"ochrona": SCIEZKA_OCHRONY, "gastronomia": SCIEZKA_GASTRONOMII, "zarząd": SCIEZKA_ZARZADU, "zarzad_ochrony": SCIEZKA_ZARZADU_OCHRONY}
 SCIEZKI_WYBORY = [app_commands.Choice(name=n.replace('_',' ').title(), value=n) for n in SCIEZKI_MAP.keys()] # Dynamiczne generowanie choices
 
 # --- Role Groups ---
@@ -335,7 +335,7 @@ class NoodleExchangeBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
         
     async def setup_hook(self):
-        await self.tree.sync()
+        await self.tree.sync(guild=discord.Object(id=GUILD_ID))
         
     async def on_ready(self):
         print(f"Zalogowano jako {self.user}")
