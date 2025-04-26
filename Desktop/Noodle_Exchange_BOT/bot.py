@@ -89,7 +89,7 @@ class Role:
 
     # System punktowy - Plusy
     PLUS1 = 1125425345433194506
-    PLUS2 = 1125425435535212544
+    PLUS2 = 1125425435535212544 
     PLUS3 = 1125425499980709909
 
     # System punktowy - Minusy
@@ -621,60 +621,55 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
             await interaction.response.send_message("❌ Bot nie ma uprawnień do zarządzania rolami!", ephemeral=True)
             return False
 
-        # Usuń WSZYSTKIE role punktowe tego typu przed nadaniem nowej
-        try:
-            for role in role_levels.values():
-                if role and role in member.roles:
-                    await member.remove_roles(role)
-                    print(f"[DEBUG] Usunięto rolę {role.name} ({role.id}) użytkownikowi {member.name}")
-        except Exception as e:
-            print(f"[ERROR] Nie udało się usunąć ról: {e}")
-            await interaction.response.send_message(f"❌ Błąd podczas usuwania ról: {e}", ephemeral=True)
-            return False
-
-        # Sprawdź aktualny poziom na podstawie ról (po usunięciu zawsze 0)
-        current_level = 0
+        # Pobierz aktualny licznik punktów
+        current_level = pracownicy[str(member.id)].get(typ, 0)
+        previous_level = current_level
+        # Inkrementuj licznik
+        current_level += 1
         pracownicy[str(member.id)][typ] = current_level
 
-        # Dodaj nowy punkt
-        pracownicy[str(member.id)][typ] += 1
-        nowy_poziom = pracownicy[str(member.id)][typ]
+        # Usuń starą rolę punktową (jeśli była)
+        if previous_level > 0 and previous_level <= 3:
+            old_role = role_levels.get(previous_level)
+            if old_role and old_role in member.roles:
+                await member.remove_roles(old_role)
+                print(f"[DEBUG] Usunięto starą rolę {old_role.name} ({old_role.id}) użytkownikowi {member.name}")
 
         # Dodaj nową rolę jeśli nie przekroczono limitu
-        if nowy_poziom <= 3:
-            # DODATKOWA WALIDACJA: czy rola istnieje
-            if role_levels[nowy_poziom] is None:
-                print(f"ERROR: role_levels[{nowy_poziom}] is None! Szukana nazwa: {['Plus1/3','Plus2/3','Plus3/3'] if typ=='plusy' else ['Minus1/3','Minus2/3','Minus3/3'] if typ=='minusy' else ['Upomnienie1/3','Upomnienie2/3','Upomnienie3/3']}")
+        if current_level <= 3:
+            if role_levels[current_level] is None:
+                print(f"ERROR: role_levels[{current_level}] is None! Szukane ID: {role_levels}")
                 await interaction.response.send_message(
-                    f"❌ Wymagana rola dla poziomu {nowy_poziom}/3 nie istnieje na serwerze! Skontaktuj się z administratorem.",
+                    f"❌ Wymagana rola dla poziomu {current_level}/3 nie istnieje na serwerze! Skontaktuj się z administratorem.",
                     ephemeral=True
                 )
                 return False
             try:
-                await member.add_roles(role_levels[nowy_poziom])
-                print(f"[DEBUG] Nadano rolę {role_levels[nowy_poziom].name} ({role_levels[nowy_poziom].id}) użytkownikowi {member.name}")
+                await member.add_roles(role_levels[current_level])
+                print(f"[DEBUG] Nadano rolę {role_levels[current_level].name} ({role_levels[current_level].id}) użytkownikowi {member.name}")
             except Exception as e:
                 print(f"[ERROR] Nie udało się nadać roli: {e}")
                 await interaction.response.send_message(f"❌ Błąd podczas nadawania roli: {e}", ephemeral=True)
                 return False
-            
             # Przygotuj odpowiednie emoji i tekst
             emoji_map = {"plusy": "⭐", "minusy": "❌", "upomnienia": "⚠️"}
             emoji = emoji_map.get(typ, "")
-            
             # Wyślij powiadomienie
             if powod:
                 await interaction.response.send_message(
-                    f"{emoji} {member.mention} otrzymał(a) punkt ({nowy_poziom}/3)\nPowód: {powod}"
+                    f"{emoji} {member.mention} otrzymał(a) punkt ({current_level}/3)\nPowód: {powod}"
                 )
             else:
                 await interaction.response.send_message(
-                    f"{emoji} {member.mention} otrzymał(a) punkt ({nowy_poziom}/3)"
+                    f"{emoji} {member.mention} otrzymał(a) punkt ({current_level}/3)"
                 )
-
-        # Jeśli osiągnięto limit 3 punktów
-        if nowy_poziom >= 3:
+        else:
+            # Osiągnięto limit, resetuj licznik i usuń rolę za poziom 3
             pracownicy[str(member.id)][typ] = 0
+            role3 = role_levels.get(3)
+            if role3 and role3 in member.roles:
+                await member.remove_roles(role3)
+                print(f"[DEBUG] Usunięto rolę {role3.name} ({role3.id}) po osiągnięciu limitu u {member.name}")
             zapisz_pracownikow()
             if typ == "plusy":
                 await interaction.followup.send(f"🎉 **Gratulacje!** {member.mention} otrzymał(a) 3 plusy! To świetny wynik!")
