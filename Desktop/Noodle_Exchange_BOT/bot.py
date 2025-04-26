@@ -586,21 +586,21 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
         # Określ role na podstawie typu punktów
         if typ == "plusy":
             role_levels = {
-                1: discord.utils.get(interaction.guild.roles, name="Plus1/3"),
-                2: discord.utils.get(interaction.guild.roles, name="Plus2/3"),
-                3: discord.utils.get(interaction.guild.roles, name="Plus3/3")
+                1: interaction.guild.get_role(Role.PLUS1),
+                2: interaction.guild.get_role(Role.PLUS2),
+                3: interaction.guild.get_role(Role.PLUS3)
             }
         elif typ == "minusy":
             role_levels = {
-                1: discord.utils.get(interaction.guild.roles, name="Minus1/3"),
-                2: discord.utils.get(interaction.guild.roles, name="Minus2/3"),
-                3: discord.utils.get(interaction.guild.roles, name="Minus3/3")
+                1: interaction.guild.get_role(Role.MINUS1),
+                2: interaction.guild.get_role(Role.MINUS2),
+                3: interaction.guild.get_role(Role.MINUS3)
             }
         else:
             role_levels = {
-                1: discord.utils.get(interaction.guild.roles, name="Upomnienie1/3"),
-                2: discord.utils.get(interaction.guild.roles, name="Upomnienie2/3"),
-                3: discord.utils.get(interaction.guild.roles, name="Upomnienie3/3")
+                1: interaction.guild.get_role(Role.UPOMNIENIE1),
+                2: interaction.guild.get_role(Role.UPOMNIENIE2),
+                3: interaction.guild.get_role(Role.UPOMNIENIE3)
             }
 
         # WALIDACJA: sprawdź czy wszystkie wymagane role istnieją
