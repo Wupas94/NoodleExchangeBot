@@ -644,6 +644,7 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
         if nowy_poziom <= 3:
             # DODATKOWA WALIDACJA: czy rola istnieje
             if role_levels[nowy_poziom] is None:
+                print(f"ERROR: role_levels[{nowy_poziom}] is None! Szukana nazwa: {['Plus1/3','Plus2/3','Plus3/3'] if typ=='plusy' else ['Minus1/3','Minus2/3','Minus3/3'] if typ=='minusy' else ['Upomnienie1/3','Upomnienie2/3','Upomnienie3/3']}")
                 await interaction.response.send_message(
                     f"❌ Wymagana rola dla poziomu {nowy_poziom}/3 nie istnieje na serwerze! Skontaktuj się z administratorem.",
                     ephemeral=True
