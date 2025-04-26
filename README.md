@@ -1,39 +1,76 @@
-# Discord Auto-Delete Bot
+# Noodle Exchange Bot
 
-A Discord bot that automatically deletes its own messages after 12 hours.
+Bot Discord do zarządzania pracownikami i systemem punktowym.
 
-## Features
+## Funkcje
 
-- Automatically deletes bot's messages after 12 hours
-- Simple and efficient message tracking
-- Error handling for message deletion
+- System punktowy (dodawanie/odejmowanie punktów)
+- System awansów i degradacji
+- Zarządzanie rolami pracowników
+- System ostrzeżeń
+- Historia pracownika
+- Lista pracowników
 
-## Setup
+## Wymagania
 
-1. Install the required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+- Python 3.8 lub nowszy
+- Discord.py 2.3.2 lub nowszy
+- Python-dotenv 1.0.0 lub nowszy
 
-2. Create a `.env` file in the root directory and add your Discord bot token:
-   ```
-   DISCORD_TOKEN=your_bot_token_here
-   ```
+## Instalacja
 
-3. Make sure your bot has the following permissions:
-   - Manage Messages
-   - Read Messages/View Channels
-   - Send Messages
+1. Sklonuj repozytorium:
+```bash
+git clone https://github.com/twoj-username/noodle-exchange-bot.git
+cd noodle-exchange-bot
+```
 
-## Running the Bot
+2. Zainstaluj wymagane pakiety:
+```bash
+pip install -r requirements.txt
+```
 
-Run the bot using:
+3. Utwórz plik `.env` w głównym katalogu projektu i dodaj swój token Discord:
+```
+DISCORD_TOKEN=twoj_token_discord
+```
+
+## Konfiguracja
+
+1. Upewnij się, że bot ma odpowiednie uprawnienia na serwerze Discord:
+   - Zarządzanie rolami
+   - Czytanie wiadomości
+   - Wysyłanie wiadomości
+   - Zarządzanie wiadomościami
+
+2. Skonfiguruj role w pliku `bot.py`:
+   - Ustaw odpowiednie ID ról dla ścieżek kariery
+   - Ustaw role uprawnień (manager, admin)
+
+## Uruchomienie
+
 ```bash
 python bot.py
 ```
 
-## Notes
+## Komendy
 
-- The bot will only delete messages that are less than 14 days old (Discord API limitation)
-- Messages are tracked in memory, so they will be lost if the bot restarts
-- Make sure to keep your bot token secure and never share it publicly 
+- `/punkty` - Zarządzanie punktami pracownika
+- `/awansuj` - Awansowanie pracownika
+- `/degrad` - Degradacja pracownika
+- `/historia` - Historia pracownika
+- `/warn` - Dodawanie ostrzeżenia
+- `/zwolnij` - Zwolnienie pracownika
+- `/lista_pracownikow` - Lista wszystkich pracowników
+- `/test_uprawnienia` - Test uprawnień użytkownika
+- `/sprawdz_role` - Sprawdzenie ról użytkownika
+
+## Bezpieczeństwo
+
+- Token bota jest przechowywany w pliku `.env`
+- Wszystkie komendy wymagają odpowiednich uprawnień
+- Historia działań jest logowana
+
+## Wsparcie
+
+W przypadku problemów, utwórz issue w repozytorium projektu. 
