@@ -586,45 +586,76 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
         # Określ role na podstawie typu punktów
         if typ == "plusy":
             role_levels = {
-                1: discord.utils.get(interaction.guild.roles, name="1/3 ⭐"),
-                2: discord.utils.get(interaction.guild.roles, name="2/3 ⭐"),
-                3: discord.utils.get(interaction.guild.roles, name="3/3 ⭐")
+                1: discord.utils.get(interaction.guild.roles, name="Plus 1/3"),
+                2: discord.utils.get(interaction.guild.roles, name="Plus 2/3"),
+                3: discord.utils.get(interaction.guild.roles, name="Plus 3/3")
             }
         elif typ == "minusy":
             role_levels = {
-                1: discord.utils.get(interaction.guild.roles, name="1/3 ❌"),
-                2: discord.utils.get(interaction.guild.roles, name="2/3 ❌"),
-                3: discord.utils.get(interaction.guild.roles, name="3/3 ❌")
+                1: discord.utils.get(interaction.guild.roles, name="Minus 1/3"),
+                2: discord.utils.get(interaction.guild.roles, name="Minus 2/3"),
+                3: discord.utils.get(interaction.guild.roles, name="Minus 3/3")
             }
         else:
             role_levels = {
-                1: discord.utils.get(interaction.guild.roles, name="1/3 ⚠️"),
-                2: discord.utils.get(interaction.guild.roles, name="2/3 ⚠️"),
-                3: discord.utils.get(interaction.guild.roles, name="3/3 ⚠️")
+                1: discord.utils.get(interaction.guild.roles, name="Upomnienie 1/3"),
+                2: discord.utils.get(interaction.guild.roles, name="Upomnienie 2/3"),
+                3: discord.utils.get(interaction.guild.roles, name="Upomnienie 3/3")
             }
 
-        # Sprawdź aktualny poziom na podstawie ról
-        current_level = 0
-        for level, role in role_levels.items():
-            if role in member.roles:
-                current_level = level
-                break
+        # WALIDACJA: sprawdź czy wszystkie wymagane role istnieją
+        missing_roles = [str(level) for level, role in role_levels.items() if role is None]
+        print(f"[DEBUG] Sprawdzam role punktowe: {role_levels}")
+        if missing_roles:
+            print(f"[ERROR] Brakuje ról dla poziomów: {missing_roles}")
+            await interaction.response.send_message(
+                f"❌ Nie mogę znaleźć wymaganych ról na serwerze dla poziomów: {', '.join(missing_roles)}!\n" 
+                f"Upewnij się, że role o nazwach: {[name for level, name in zip(role_levels.keys(), ['Plus 1/3','Plus 2/3','Plus 3/3'] if typ=='plusy' else ['Minus 1/3','Minus 2/3','Minus 3/3'] if typ=='minusy' else ['Upomnienie 1/3','Upomnienie 2/3','Upomnienie 3/3']) if int(level) in [int(m) for m in missing_roles]]} istnieją na serwerze.",
+                ephemeral=True
+            )
+            return False
 
-        # Ustaw liczbę punktów na podstawie aktualnego poziomu
+        # Sprawdź uprawnienia bota do zarządzania rolami
+        bot_member = interaction.guild.get_member(interaction.client.user.id)
+        if not bot_member.guild_permissions.manage_roles:
+            await interaction.response.send_message("❌ Bot nie ma uprawnień do zarządzania rolami!", ephemeral=True)
+            return False
+
+        # Usuń WSZYSTKIE role punktowe tego typu przed nadaniem nowej
+        try:
+            for role in role_levels.values():
+                if role and role in member.roles:
+                    await member.remove_roles(role)
+                    print(f"[DEBUG] Usunięto rolę {role.name} ({role.id}) użytkownikowi {member.name}")
+        except Exception as e:
+            print(f"[ERROR] Nie udało się usunąć ról: {e}")
+            await interaction.response.send_message(f"❌ Błąd podczas usuwania ról: {e}", ephemeral=True)
+            return False
+
+        # Sprawdź aktualny poziom na podstawie ról (po usunięciu zawsze 0)
+        current_level = 0
         pracownicy[str(member.id)][typ] = current_level
 
         # Dodaj nowy punkt
         pracownicy[str(member.id)][typ] += 1
         nowy_poziom = pracownicy[str(member.id)][typ]
 
-        # Usuń stare role
-        for role in role_levels.values():
-            if role in member.roles:
-                await member.remove_roles(role)
-
         # Dodaj nową rolę jeśli nie przekroczono limitu
         if nowy_poziom <= 3:
-            await member.add_roles(role_levels[nowy_poziom])
+            # DODATKOWA WALIDACJA: czy rola istnieje
+            if role_levels[nowy_poziom] is None:
+                await interaction.response.send_message(
+                    f"❌ Wymagana rola dla poziomu {nowy_poziom}/3 nie istnieje na serwerze! Skontaktuj się z administratorem.",
+                    ephemeral=True
+                )
+                return False
+            try:
+                await member.add_roles(role_levels[nowy_poziom])
+                print(f"[DEBUG] Nadano rolę {role_levels[nowy_poziom].name} ({role_levels[nowy_poziom].id}) użytkownikowi {member.name}")
+            except Exception as e:
+                print(f"[ERROR] Nie udało się nadać roli: {e}")
+                await interaction.response.send_message(f"❌ Błąd podczas nadawania roli: {e}", ephemeral=True)
+                return False
             
             # Przygotuj odpowiednie emoji i tekst
             emoji_map = {"plusy": "⭐", "minusy": "❌", "upomnienia": "⚠️"}
@@ -642,18 +673,14 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
 
         # Jeśli osiągnięto limit 3 punktów
         if nowy_poziom >= 3:
-            # Wyzeruj punkty
             pracownicy[str(member.id)][typ] = 0
             zapisz_pracownikow()
-            
-            # Wyślij odpowiednie powiadomienie
             if typ == "plusy":
                 await interaction.followup.send(f"🎉 **Gratulacje!** {member.mention} otrzymał(a) 3 plusy! To świetny wynik!")
             elif typ == "minusy":
                 await interaction.followup.send(f"⚠️ **UWAGA!** {member.mention} otrzymał(a) 3 minusy! Rozważ podjęcie odpowiednich działań.")
             else:
                 await interaction.followup.send(f"⛔ **UWAGA!** {member.mention} otrzymał(a) 3 upomnienia! Konieczne jest podjęcie działań!")
-            
             return True
 
         zapisz_pracownikow()
@@ -1268,14 +1295,23 @@ async def slash_zwolnij(interaction: discord.Interaction, member: discord.Member
         return
     
     try:
-        # Usuń wszystkie role ze ścieżek awansu
+        # Usuń wszystkie role ze wszystkich ścieżek awansu
         roles_to_remove = []
         
-        # Dodaj role z obu ścieżek
-        for role_id in SCIEZKA_OCHRONY + SCIEZKA_GASTRONOMII:
+        # Dodaj role ze wszystkich ścieżek
+        for role_id in SCIEZKA_OCHRONY + SCIEZKA_GASTRONOMII + SCIEZKA_ZARZADU + SCIEZKA_ZARZADU_OCHRONY:
             role = interaction.guild.get_role(role_id)
             if role and role in member.roles:
                 roles_to_remove.append(role)
+        
+        # Dodaj podstawowe role (Pracownik i Rekrut)
+        pracownik_role = interaction.guild.get_role(Role.PRACOWNIK)
+        rekrut_role = interaction.guild.get_role(Role.REKRUT)
+        
+        if pracownik_role and pracownik_role in member.roles:
+            roles_to_remove.append(pracownik_role)
+        if rekrut_role and rekrut_role in member.roles:
+            roles_to_remove.append(rekrut_role)
         
         # Usuń role
         if roles_to_remove:
