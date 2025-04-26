@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 load_dotenv()
 JSON_FILE = "pracownicy.json"
 ITEMS_PER_PAGE = 10
-GUILD_IDS = [int(id) for id in os.getenv('GUILD_IDS', '').split(',') if id.strip()]
+GUILD_ID = 1021373051272704130  # ID serwera na którym jest bot
+GUILD_IDS = [GUILD_ID]  # Lista ID serwerów, na których bot ma działać
 
 # --- Role IDs ---
 class Role:
