@@ -1420,6 +1420,41 @@ async def slash_sprawdz_role(interaction: discord.Interaction):
             await interaction.followup.send(part, ephemeral=True)
     else:
         await interaction.followup.send(response, ephemeral=True)
+# --- Komendy Debugowania ---
 
+@bot.tree.command(name="force_sync", description="[Właściciel] Czyści i synchronizuje komendy dla TEGO serwera.")
+@app_commands.guilds(GUILD_OBJ) # Upewnij się, że GUILD_OBJ jest zdefiniowane z poprawnym ID
+async def force_sync(interaction: discord.Interaction):
+    # !!! WAŻNE: Wstaw tutaj SWOJE ID użytkownika Discord !!!
+    # Zapewni to, że tylko Ty możesz wykonać tę komendę.
+    owner_id = 377376144879648768 # <-- ZASTĄP TĄ LICZBĘ SWOIM ID!
+
+    if interaction.user.id != owner_id:
+        await interaction.response.send_message("❌ Tylko właściciel bota może tego użyć.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    try:
+        guild_id = interaction.guild_id
+        guild_obj = discord.Object(id=guild_id) # Użyj ID serwera, na którym komenda została wywołana
+
+        print(f"[SYNC MANUAL] Rozpoczynam czyszczenie komend dla serwera {guild_id}...")
+        bot.tree.clear_commands(guild=guild_obj)
+        await bot.tree.sync(guild=guild_obj)
+        print(f"[SYNC MANUAL] Wyczyszczono komendy dla serwera {guild_id}.")
+
+        print(f"[SYNC MANUAL] Rozpoczynam ponowną synchronizację dla serwera {guild_id}...")
+        # Możesz opcjonalnie skopiować komendy globalne, jeśli jakieś masz
+        # bot.tree.copy_global_to(guild=guild_obj)
+        await bot.tree.sync(guild=guild_obj)
+        print(f"[SYNC MANUAL] Zsynchronizowano komendy dla serwera {guild_id}.")
+
+        await interaction.followup.send("✅ Komendy na tym serwerze zostały wyczyszczone i ponownie zsynchronizowane!", ephemeral=True)
+    except Exception as e:
+        print(f"[ERROR SYNC MANUAL] Błąd podczas ręcznej synchronizacji: {e}")
+        traceback.print_exc()
+        await interaction.followup.send(f"❌ Wystąpił błąd podczas synchronizacji: {e}", ephemeral=True)
+
+# (Reszta komend /test_uprawnienia, /sprawdz_role itd.)
 # Run the bot
 bot.run(os.getenv('DISCORD_TOKEN')) 
