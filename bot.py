@@ -6,6 +6,8 @@ import os
 from enum import Enum
 import asyncio
 from dotenv import load_dotenv
+from datetime import datetime
+from typing import Literal
 
 # Load environment variables
 load_dotenv()
@@ -117,6 +119,24 @@ SCIEZKA_GASTRONOMII = [
     Role.KUCHARZ,
     Role.SZEF_KUCHNI,
     Role.OBSLUGA_BARU
+]
+
+SCIEZKA_ZARZADU = [
+    Role.REKRUT,
+    Role.PRACOWNIK,
+    Role.ASYSTENT_KIEROWNIKA,
+    Role.KIEROWNIK,
+    Role.MENADZER,
+    Role.ZASTEPCA_SZEFA
+]
+
+SCIEZKA_ZARZADU_OCHRONY = [
+    Role.OCHRONA,
+    Role.SZKOLENIOWIEC_OCHRONY,
+    Role.EGZAMINATOR_OCHRONY,
+    Role.ASYSTENT_SZEFA_OCHRONY,
+    Role.ZASTEPCA_SZEFA_OCHRONY,
+    Role.SZEF_OCHRONY
 ]
 
 # Role zarządzające (używane w funkcji czy_ma_uprawnienia_do_zarzadzania)
@@ -283,33 +303,129 @@ async def slash_test(interaction: discord.Interaction):
 # Funkcja pomocnicza do sprawdzania czy użytkownik jest zatrudniony
 def czy_jest_zatrudniony(member: discord.Member) -> bool:
     """
-    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik i jest w bazie danych)
+    Sprawdza czy użytkownik jest zatrudniony i automatycznie dodaje do bazy jeśli ma role
     """
-    # Sprawdź czy użytkownik jest w bazie danych
+    print(f"\n=== SZCZEGÓŁOWE SPRAWDZANIE ZATRUDNIENIA ===")
+    print(f"Sprawdzam użytkownika: {member.name} (ID: {member.id})")
+    
+    # Lista wszystkich ról związanych z pracą
+    ROLE_PRACOWNICZE = [
+        # Role zarządzające
+        Role.NADZOR_PRACY,
+        Role.WLASCICIEL_FIRMY,
+        Role.ZASTEPCA_SZEFA,
+        Role.MENADZER,
+        Role.KIEROWNIK,
+        Role.ASYSTENT_KIEROWNIKA,
+        Role.TECHNIK,
+        Role.NADZOR_OCHRONY,
+        Role.SZEF_OCHRONY,
+        Role.ZASTEPCA_SZEFA_OCHRONY,
+        Role.ASYSTENT_SZEFA_OCHRONY,
+        Role.EGZAMINATOR_OCHRONY,
+        Role.SZKOLENIOWIEC_OCHRONY,
+        # Role podstawowe
+        Role.REKRUT,
+        Role.PRACOWNIK,
+        Role.OCHRONA,
+        # Ścieżka Ochrony
+        Role.MLODSZY_OCHRONIARZ,
+        Role.OCHRONIARZ,
+        Role.OCHRONIARZ_LICENCJONOWANY,
+        Role.DOSWIADCZONY_OCHRONIARZ,
+        Role.STARSZY_OCHRONIARZ,
+        # Ścieżka Gastronomii
+        Role.KELNER,
+        Role.ASYSTENT_KUCHARZA,
+        Role.KUCHARZ,
+        Role.SZEF_KUCHNI,
+        Role.OBSLUGA_BARU
+    ]
+    
+    print("\nROLE PRACOWNICZE W SYSTEMIE:")
+    for role_id in ROLE_PRACOWNICZE:
+        print(f"- ID: {role_id}")
+    
+    print("\nROLE UŻYTKOWNIKA:")
+    user_role_ids = [role.id for role in member.roles]
+    for role in member.roles:
+        print(f"- {role.name} (ID: {role.id})")
+        if role.id in ROLE_PRACOWNICZE:
+            print(f"  ✓ Ta rola jest na liście ról pracowniczych!")
+        else:
+            # Sprawdź czy nazwa roli wskazuje na rolę pracowniczą
+            role_name_lower = role.name.lower()
+            if any(keyword in role_name_lower for keyword in ["ochrona", "pracownik", "rekrut", "technik", "menadzer", "kierownik"]):
+                print(f"  ✓ Ta rola ma nazwę wskazującą na rolę pracowniczą!")
+            else:
+                print(f"  ✗ Ta rola nie jest na liście ról pracowniczych")
+    
+    # Sprawdź czy użytkownik ma którąkolwiek z ról pracowniczych (po ID lub nazwie)
+    znalezione_role = []
+    for role in member.roles:
+        # Sprawdź ID roli
+        if int(role.id) in [int(r) for r in ROLE_PRACOWNICZE]:
+            znalezione_role.append(role)
+            print(f"\nZnaleziono rolę pracowniczą (po ID):")
+            print(f"- Nazwa: {role.name}")
+            print(f"- ID: {role.id}")
+            continue
+            
+        # Sprawdź nazwę roli
+        role_name_lower = role.name.lower()
+        if any(keyword in role_name_lower for keyword in ["ochrona", "pracownik", "rekrut", "technik", "menadzer", "kierownik"]):
+            znalezione_role.append(role)
+            print(f"\nZnaleziono rolę pracowniczą (po nazwie):")
+            print(f"- Nazwa: {role.name}")
+            print(f"- ID: {role.id}")
+    
+    ma_role_pracownicza = len(znalezione_role) > 0
+    print(f"\nCzy ma rolę pracowniczą: {ma_role_pracownicza}")
+    
+    # Jeśli użytkownik ma role pracownicze, ale nie ma go w bazie, dodaj go
+    if ma_role_pracownicza:
+        print("\nSprawdzanie czy użytkownik jest w bazie...")
+        if str(member.id) not in pracownicy:
+            print("Użytkownik nie jest w bazie, dodaję...")
+            # Znajdź najwyższą rolę użytkownika z listy ról pracowniczych
+            najwyzsza_rola = znalezione_role[0]  # Bierzemy pierwszą znalezioną rolę
+            for role in reversed(znalezione_role):  # Sprawdzamy od końca (wyższe role są później)
+                najwyzsza_rola = role
+                break
+            
+            pracownicy[str(member.id)] = {
+                "nazwa": str(member),
+                "data_zatrudnienia": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                "rola": najwyzsza_rola.name,
+                "plusy": 0,
+                "minusy": 0,
+                "upomnienia": 0,
+                "ostrzezenia": [],
+                "historia_awansow": []
+            }
+            zapisz_pracownikow()
+            print(f"✓ Dodano użytkownika {member.name} do bazy z rolą {najwyzsza_rola.name}")
+        else:
+            print("Użytkownik jest już w bazie")
+    
+    # Sprawdź czy jest w bazie danych
     jest_w_bazie = str(member.id) in pracownicy
+    print(f"\nCzy jest w bazie danych: {jest_w_bazie}")
+    if jest_w_bazie:
+        print(f"Dane z bazy: {pracownicy[str(member.id)]}")
     
-    # Sprawdź czy ma role
-    pracownik_role = member.guild.get_role(Role.PRACOWNIK)
-    rekrut_role = member.guild.get_role(Role.REKRUT)
-    
-    ma_role = False
-    if pracownik_role and rekrut_role:
-        ma_role = pracownik_role in member.roles and rekrut_role in member.roles
-    
-    # Debugowanie
-    print(f"\n=== Sprawdzanie zatrudnienia dla {member.name} ===")
-    print(f"ID użytkownika: {member.id}")
-    print(f"Role użytkownika: {[role.name for role in member.roles]}")
-    print(f"ID roli Pracownik: {Role.PRACOWNIK}")
-    print(f"ID roli Rekrut: {Role.REKRUT}")
-    print(f"Znaleziona rola Pracownik: {pracownik_role}")
-    print(f"Znaleziona rola Rekrut: {rekrut_role}")
-    print(f"Czy jest w bazie danych: {jest_w_bazie}")
-    print(f"Czy ma wymagane role: {ma_role}")
+    print("\n=== PODSUMOWANIE ===")
+    if ma_role_pracownicza:
+        print("Znalezione role pracownicze:")
+        for role in znalezione_role:
+            print(f"- {role.name} (ID: {role.id})")
+    else:
+        print("Nie znaleziono żadnej roli pracowniczej")
+    print(f"Jest w bazie danych: {jest_w_bazie}")
+    print(f"OSTATECZNY WYNIK: {'ZATRUDNIONY' if ma_role_pracownicza or jest_w_bazie else 'NIEZATRUDNIONY'}")
     print("=" * 50)
     
-    # Użytkownik jest zatrudniony jeśli jest w bazie LUB ma wymagane role
-    return jest_w_bazie or ma_role
+    return ma_role_pracownicza or jest_w_bazie
 
 # Komenda do zatrudniania pracowników
 @bot.tree.command(name="job", description="Zatrudnia nowego pracownika")
@@ -433,114 +549,122 @@ class Kanaly:
     LOGI_PUNKTY = 1234567890  # ID kanału do logowania punktów
     LOGI_AWANSE = 1234567890  # ID kanału do logowania awansów
 
-async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, typ: str, powod: str) -> bool:
+async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, typ: str, powod: str = None) -> bool:
     """
-    Dodaje punkt określonego typu (plus/minus/upomnienie) pracownikowi.
-    Zwraca True jeśli osiągnięto 3 punkty.
+    Dodaje punkt (plus/minus/upomnienie) pracownikowi i zarządza rolami.
+    Sprawdza czy użytkownik jest zatrudniony (ma rolę Pracownik LUB Rekrut, lub jest w bazie danych).
+    
+    Args:
+        interaction: Interakcja Discorda
+        member: Członek serwera, któremu dodajemy punkt
+        typ: Typ punktu ('plusy', 'minusy', 'upomnienia')
+        powod: Powód dodania punktu
+        
+    Returns:
+        bool: True jeśli osiągnięto limit 3 punktów, False w przeciwnym razie
     """
-    if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
-        await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania punktami!", ephemeral=True)
-        return False
-
-    if not czy_jest_zatrudniony(member):
-        await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
-        return False
-
-    await interaction.response.defer()
-
-    # Upewnij się, że pracownik jest w bazie danych
-    if str(member.id) not in pracownicy:
-        pracownicy[str(member.id)] = {
-            "nazwa": str(member),
-            "data_zatrudnienia": str(interaction.created_at.strftime("%Y-%m-%d %H:%M:%S")),
-            "rola": "Pracownik",
-            "plusy": 0,
-            "minusy": 0,
-            "upomnienia": 0,
-            "ostrzezenia": [],
-            "historia_awansow": []
-        }
-    
-    pracownik = pracownicy[str(member.id)]
-    
-    # Dodaj punkt odpowiedniego typu
-    pracownik[typ] += 1
-    current_points = pracownik[typ]
-    
-    # Przygotuj odpowiedni emoji i wiadomość
-    emoji_map = {"plusy": "✅", "minusy": "❌", "upomnienia": "⚠️"}
-    emoji = emoji_map.get(typ, "ℹ️")
-    typ_pojedynczy = {"plusy": "plus", "minusy": "minus", "upomnienia": "upomnienie"}.get(typ, typ)
-
-    # Określ role do zarządzania
-    if typ == "plusy":
-        role_ids = [Role.PLUS1, Role.PLUS2, Role.PLUS3]
-    elif typ == "minusy":
-        role_ids = [Role.MINUS1, Role.MINUS2, Role.MINUS3]
-    else:  # upomnienia
-        role_ids = [Role.UPOMNIENIE1, Role.UPOMNIENIE2, Role.UPOMNIENIE3]
-
     try:
-        # Usuń wszystkie role punktowe tego typu
-        roles_to_remove = []
-        for role_id in role_ids:
-            role = interaction.guild.get_role(role_id)
-            if role and role in member.roles:
-                roles_to_remove.append(role)
-        
-        if roles_to_remove:
-            await member.remove_roles(*roles_to_remove)
+        # Sprawdź czy pracownik jest zatrudniony
+        if not czy_jest_zatrudniony(member):
+            await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
+            return False
 
-        # Dodaj odpowiednią rolę punktową (tylko jeśli nie osiągnięto limitu)
-        if current_points > 0 and current_points <= 3 and not (current_points == 3):
-            role = interaction.guild.get_role(role_ids[current_points - 1])
-            if role:
-                await member.add_roles(role)
-    except discord.Forbidden:
-        await interaction.followup.send("❌ Bot nie ma uprawnień do zarządzania rolami!")
-        return False
-    except Exception as e:
-        await interaction.followup.send(f"❌ Wystąpił błąd podczas zarządzania rolami: {str(e)}")
-        return False
-    
-    # Zapisz zmiany
-    zapisz_pracownikow()
-    
-    # Sprawdź czy osiągnięto 3 punkty
-    if current_points >= 3:
-        # Wyślij powiadomienie o osiągnięciu 3 punktów
-        await interaction.followup.send(
-            f"{emoji} **{member.mention} osiągnął(a) 3 {typ}!**\n"
-            f"Powód ostatniego punktu: {powod}\n"
-            f"Licznik {typ} został wyzerowany."
-        )
+        # Inicjalizuj dane pracownika jeśli nie istnieją
+        if str(member.id) not in pracownicy:
+            pracownicy[str(member.id)] = {
+                "nazwa": str(member),
+                "data_zatrudnienia": str(interaction.created_at.strftime("%Y-%m-%d %H:%M:%S")),
+                "rola": "Pracownik",
+                "plusy": 0,
+                "minusy": 0,
+                "upomnienia": 0,
+                "ostrzezenia": [],
+                "historia_awansow": []
+            }
+            zapisz_pracownikow()
 
-        # Usuń wszystkie role punktowe tego typu
-        roles_to_remove = []
-        for role_id in role_ids:
-            role = interaction.guild.get_role(role_id)
-            if role and role in member.roles:
-                roles_to_remove.append(role)
-        
-        if roles_to_remove:
-            try:
-                await member.remove_roles(*roles_to_remove)
-                print(f"Usunięto role {[role.name for role in roles_to_remove]} dla {member.name}")
-            except Exception as e:
-                print(f"Błąd podczas usuwania ról: {str(e)}")
+        # Określ role na podstawie typu punktów
+        if typ == "plusy":
+            role_levels = {
+                1: discord.utils.get(interaction.guild.roles, name="1/3 ⭐"),
+                2: discord.utils.get(interaction.guild.roles, name="2/3 ⭐"),
+                3: discord.utils.get(interaction.guild.roles, name="3/3 ⭐")
+            }
+        elif typ == "minusy":
+            role_levels = {
+                1: discord.utils.get(interaction.guild.roles, name="1/3 ❌"),
+                2: discord.utils.get(interaction.guild.roles, name="2/3 ❌"),
+                3: discord.utils.get(interaction.guild.roles, name="3/3 ❌")
+            }
+        else:
+            role_levels = {
+                1: discord.utils.get(interaction.guild.roles, name="1/3 ⚠️"),
+                2: discord.utils.get(interaction.guild.roles, name="2/3 ⚠️"),
+                3: discord.utils.get(interaction.guild.roles, name="3/3 ⚠️")
+            }
 
-        # Wyzeruj licznik
-        pracownik[typ] = 0
+        # Sprawdź aktualny poziom na podstawie ról
+        current_level = 0
+        for level, role in role_levels.items():
+            if role in member.roles:
+                current_level = level
+                break
+
+        # Ustaw liczbę punktów na podstawie aktualnego poziomu
+        pracownicy[str(member.id)][typ] = current_level
+
+        # Dodaj nowy punkt
+        pracownicy[str(member.id)][typ] += 1
+        nowy_poziom = pracownicy[str(member.id)][typ]
+
+        # Usuń stare role
+        for role in role_levels.values():
+            if role in member.roles:
+                await member.remove_roles(role)
+
+        # Dodaj nową rolę jeśli nie przekroczono limitu
+        if nowy_poziom <= 3:
+            await member.add_roles(role_levels[nowy_poziom])
+            
+            # Przygotuj odpowiednie emoji i tekst
+            emoji_map = {"plusy": "⭐", "minusy": "❌", "upomnienia": "⚠️"}
+            emoji = emoji_map.get(typ, "")
+            
+            # Wyślij powiadomienie
+            if powod:
+                await interaction.response.send_message(
+                    f"{emoji} {member.mention} otrzymał(a) punkt ({nowy_poziom}/3)\nPowód: {powod}"
+                )
+            else:
+                await interaction.response.send_message(
+                    f"{emoji} {member.mention} otrzymał(a) punkt ({nowy_poziom}/3)"
+                )
+
+        # Jeśli osiągnięto limit 3 punktów
+        if nowy_poziom >= 3:
+            # Wyzeruj punkty
+            pracownicy[str(member.id)][typ] = 0
+            zapisz_pracownikow()
+            
+            # Wyślij odpowiednie powiadomienie
+            if typ == "plusy":
+                await interaction.followup.send(f"🎉 **Gratulacje!** {member.mention} otrzymał(a) 3 plusy! To świetny wynik!")
+            elif typ == "minusy":
+                await interaction.followup.send(f"⚠️ **UWAGA!** {member.mention} otrzymał(a) 3 minusy! Rozważ podjęcie odpowiednich działań.")
+            else:
+                await interaction.followup.send(f"⛔ **UWAGA!** {member.mention} otrzymał(a) 3 upomnienia! Konieczne jest podjęcie działań!")
+            
+            return True
+
         zapisz_pracownikow()
+        return False
 
-        return True
-    else:
-        # Wyślij normalne powiadomienie
-        await interaction.followup.send(
-            f"{emoji} Dodano {typ_pojedynczy} dla {member.mention}\n"
-            f"Powód: {powod}\n"
-            f"Aktualna liczba {typ}: {current_points}"
-        )
+    except Exception as e:
+        print(f"Błąd podczas dodawania punktu: {str(e)}")
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"Wystąpił błąd podczas dodawania punktu: {str(e)}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"Wystąpił błąd podczas dodawania punktu: {str(e)}", ephemeral=True)
         return False
 
 # Komenda do dodawania plusów
@@ -550,30 +674,15 @@ async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, 
     powod="Powód przyznania plusa"
 )
 async def slash_plus(interaction: discord.Interaction, member: discord.Member, powod: str):
-    try:
-        # Sprawdź uprawnienia
-        if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
-            await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania plusami!", ephemeral=True)
-            return
-
-        # Sprawdź czy pracownik istnieje w systemie
-        if str(member.id) not in pracownicy:
-            await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
-            return
-
-        # Dodaj plus
-        osiagnieto_limit = await dodaj_punkt(interaction, member, "plusy", powod)
-        
-        # Jeśli osiągnięto limit 3 plusów, wyślij dodatkowe powiadomienie
-        if osiagnieto_limit:
-            await interaction.followup.send(f"🎉 **Gratulacje!** {member.mention} otrzymał(a) 3 plusy! To świetny wynik!")
-            
-    except Exception as e:
-        print(f"Błąd podczas wykonywania komendy plus: {str(e)}")
-        if not interaction.response.is_done():
-            await interaction.response.send_message(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
-        else:
-            await interaction.followup.send(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
+    """
+    Dodaje plus pracownikowi i nadaje odpowiednią rangę.
+    """
+    print(f"\n=== DODAWANIE PLUSA ===")
+    print(f"Użytkownik wykonujący: {interaction.user.name} (ID: {interaction.user.id})")
+    print(f"Cel: {member.name} (ID: {member.id})")
+    print(f"Powód: {powod}")
+    
+    await dodaj_punkt(interaction, member, "plusy", powod)
 
 # Komenda do dodawania minusów
 @bot.tree.command(name="minus", description="Dodaje minus pracownikowi")
@@ -582,30 +691,15 @@ async def slash_plus(interaction: discord.Interaction, member: discord.Member, p
     powod="Powód przyznania minusa"
 )
 async def slash_minus(interaction: discord.Interaction, member: discord.Member, powod: str):
-    try:
-        # Sprawdź uprawnienia
-        if not czy_ma_uprawnienia_do_zarzadzania(interaction.user):
-            await interaction.response.send_message("❌ Nie masz uprawnień do zarządzania minusami!", ephemeral=True)
-            return
-
-        # Sprawdź czy pracownik istnieje w systemie
-        if str(member.id) not in pracownicy:
-            await interaction.response.send_message(f"❌ {member.mention} nie jest zatrudniony!", ephemeral=True)
-            return
-
-        # Dodaj minus
-        osiagnieto_limit = await dodaj_punkt(interaction, member, "minusy", powod)
-        
-        # Jeśli osiągnięto limit 3 minusów, wyślij dodatkowe powiadomienie
-        if osiagnieto_limit:
-            await interaction.followup.send(f"⚠️ **UWAGA!** {member.mention} otrzymał(a) 3 minusy! Rozważ podjęcie odpowiednich działań.")
-            
-    except Exception as e:
-        print(f"Błąd podczas wykonywania komendy minus: {str(e)}")
-        if not interaction.response.is_done():
-            await interaction.response.send_message(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
-        else:
-            await interaction.followup.send(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
+    """
+    Dodaje minus pracownikowi i nadaje odpowiednią rangę.
+    """
+    print(f"\n=== DODAWANIE MINUSA ===")
+    print(f"Użytkownik wykonujący: {interaction.user.name} (ID: {interaction.user.id})")
+    print(f"Cel: {member.name} (ID: {member.id})")
+    print(f"Powód: {powod}")
+    
+    await dodaj_punkt(interaction, member, "minusy", powod)
 
 # Komenda do dodawania upomnień
 @bot.tree.command(name="upomnienie", description="Dodaje upomnienie pracownikowi")
@@ -639,21 +733,25 @@ async def slash_upomnienie(interaction: discord.Interaction, member: discord.Mem
         else:
             await interaction.followup.send(f"Wystąpił błąd podczas wykonywania komendy: {str(e)}", ephemeral=True)
 
-# Komenda do awansowania pracowników
+# Definicje ścieżek jako stałe
+SCIEZKI_WYBORY = [
+    app_commands.Choice(name="Ochrona", value="ochrona"),
+    app_commands.Choice(name="Gastronomia", value="gastronomia"),
+    app_commands.Choice(name="Zarząd", value="zarzad"),
+    app_commands.Choice(name="Zarząd Ochrony", value="zarzad_ochrony")
+]
+
 @bot.tree.command(name="awansuj", description="Awansuje pracownika na nowe stanowisko")
 @app_commands.describe(
     member="Pracownik do awansowania",
     sciezka="Ścieżka awansu",
     poziom="Poziom awansu (1-6, gdzie 1 to najniższy poziom)"
 )
-@app_commands.choices(sciezka=[
-    app_commands.Choice(name="Ochrona", value="ochrona"),
-    app_commands.Choice(name="Gastronomia", value="gastronomia")
-])
+@app_commands.choices(sciezka=SCIEZKI_WYBORY)
 async def slash_awansuj(
     interaction: discord.Interaction, 
     member: discord.Member, 
-    sciezka: str,
+    sciezka: Literal["Ochrona", "Gastronomia", "Zarząd", "Zarząd Ochrony"],
     poziom: app_commands.Range[int, 1, 6]
 ):
     try:
@@ -669,10 +767,10 @@ async def slash_awansuj(
         await interaction.response.defer()
 
         # Walidacja parametrów
-        sciezka = sciezka.lower()
-        if sciezka not in ["ochrona", "gastronomia"]:
+        sciezka_value = sciezka.lower().replace(" ", "_")
+        if sciezka_value not in ["ochrona", "gastronomia", "zarzad", "zarzad_ochrony"]:
             await interaction.followup.send(
-                "❌ Nieprawidłowa ścieżka! Wybierz 'ochrona' lub 'gastronomia'.",
+                "❌ Nieprawidłowa ścieżka! Wybierz 'Ochrona', 'Gastronomia', 'Zarząd' lub 'Zarząd Ochrony'.",
                 ephemeral=True
             )
             return
@@ -684,19 +782,34 @@ async def slash_awansuj(
             )
             return
 
-        # Sprawdź czy pracownik ma rolę PRACOWNIK
-        pracownik_role = interaction.guild.get_role(Role.PRACOWNIK)
-        if not pracownik_role or pracownik_role not in member.roles:
-            await interaction.followup.send(
-                f"❌ {member.mention} nie ma roli Pracownik!",
-                ephemeral=True
-            )
-            return
+        # Sprawdź czy pracownik ma wymaganą rolę bazową
+        if sciezka_value == "zarzad_ochrony":
+            rola_bazowa = interaction.guild.get_role(Role.OCHRONA)
+            if not rola_bazowa or rola_bazowa not in member.roles:
+                await interaction.followup.send(
+                    f"❌ {member.mention} nie ma roli Ochrona wymaganej do awansu w zarządzie ochrony!",
+                    ephemeral=True
+                )
+                return
+        else:
+            pracownik_role = interaction.guild.get_role(Role.PRACOWNIK)
+            if not pracownik_role or pracownik_role not in member.roles:
+                await interaction.followup.send(
+                    f"❌ {member.mention} nie ma roli Pracownik!",
+                    ephemeral=True
+                )
+                return
 
         # Wybierz odpowiednią ścieżkę awansu
-        if sciezka == "gastronomia":
+        if sciezka_value == "gastronomia":
             sciezka_awansu = SCIEZKA_GASTRONOMII
             nazwa_sciezki = "Gastronomia"
+        elif sciezka_value == "zarzad":
+            sciezka_awansu = SCIEZKA_ZARZADU
+            nazwa_sciezki = "Zarząd"
+        elif sciezka_value == "zarzad_ochrony":
+            sciezka_awansu = SCIEZKA_ZARZADU_OCHRONY
+            nazwa_sciezki = "Zarząd Ochrony"
         else:  # ochrona
             sciezka_awansu = SCIEZKA_OCHRONY
             nazwa_sciezki = "Ochrona"
@@ -742,7 +855,7 @@ async def slash_awansuj(
                 return
             
             # Sprawdź rolę bazową tylko przy pierwszym awansie
-            if sciezka == "gastronomia":
+            if sciezka_value == "gastronomia":
                 rola_bazowa = interaction.guild.get_role(Role.REKRUT)
                 if not rola_bazowa or rola_bazowa not in member.roles:
                     await interaction.followup.send(
@@ -947,14 +1060,11 @@ async def slash_warn(interaction: discord.Interaction, member: discord.Member, p
     poziom="Poziom na który chcesz zdegradować (1-6, gdzie 1 to najniższy poziom)",
     powod="Powód degradacji"
 )
-@app_commands.choices(sciezka=[
-    app_commands.Choice(name="Ochrona", value="ochrona"),
-    app_commands.Choice(name="Gastronomia", value="gastronomia")
-])
+@app_commands.choices(sciezka=SCIEZKI_WYBORY)
 async def slash_degrad(
     interaction: discord.Interaction, 
     member: discord.Member,
-    sciezka: str,
+    sciezka: Literal["Ochrona", "Gastronomia", "Zarząd", "Zarząd Ochrony"],
     poziom: app_commands.Range[int, 1, 6],
     powod: str
 ):
@@ -971,10 +1081,10 @@ async def slash_degrad(
         await interaction.response.defer()
 
         # Walidacja parametrów
-        sciezka = sciezka.lower()
-        if sciezka not in ["ochrona", "gastronomia"]:
+        sciezka_value = sciezka.lower().replace(" ", "_")
+        if sciezka_value not in ["ochrona", "gastronomia", "zarzad", "zarzad_ochrony"]:
             await interaction.followup.send(
-                "❌ Nieprawidłowa ścieżka! Wybierz 'ochrona' lub 'gastronomia'.",
+                "❌ Nieprawidłowa ścieżka! Wybierz 'Ochrona', 'Gastronomia', 'Zarząd' lub 'Zarząd Ochrony'.",
                 ephemeral=True
             )
             return
@@ -996,10 +1106,18 @@ async def slash_degrad(
             return
 
         # Wybierz odpowiednią ścieżkę
-        if sciezka == "gastronomia":
+        if sciezka_value == "gastronomia":
             sciezka_awansu = SCIEZKA_GASTRONOMII
             nazwa_sciezki = "Gastronomia"
             rola_bazowa = interaction.guild.get_role(Role.REKRUT)
+        elif sciezka_value == "zarzad":
+            sciezka_awansu = SCIEZKA_ZARZADU
+            nazwa_sciezki = "Zarząd"
+            rola_bazowa = interaction.guild.get_role(Role.PRACOWNIK)
+        elif sciezka_value == "zarzad_ochrony":
+            sciezka_awansu = SCIEZKA_ZARZADU_OCHRONY
+            nazwa_sciezki = "Zarząd Ochrony"
+            rola_bazowa = interaction.guild.get_role(Role.OCHRONA)
         else:  # ochrona
             sciezka_awansu = SCIEZKA_OCHRONY
             nazwa_sciezki = "Ochrona"
@@ -1150,14 +1268,23 @@ async def slash_zwolnij(interaction: discord.Interaction, member: discord.Member
         return
     
     try:
-        # Usuń wszystkie role ze ścieżek awansu
+        # Usuń wszystkie role ze wszystkich ścieżek awansu
         roles_to_remove = []
         
-        # Dodaj role z obu ścieżek
-        for role_id in SCIEZKA_OCHRONY + SCIEZKA_GASTRONOMII:
+        # Dodaj role ze wszystkich ścieżek
+        for role_id in SCIEZKA_OCHRONY + SCIEZKA_GASTRONOMII + SCIEZKA_ZARZADU + SCIEZKA_ZARZADU_OCHRONY:
             role = interaction.guild.get_role(role_id)
             if role and role in member.roles:
                 roles_to_remove.append(role)
+        
+        # Dodaj podstawowe role (Pracownik i Rekrut)
+        pracownik_role = interaction.guild.get_role(Role.PRACOWNIK)
+        rekrut_role = interaction.guild.get_role(Role.REKRUT)
+        
+        if pracownik_role and pracownik_role in member.roles:
+            roles_to_remove.append(pracownik_role)
+        if rekrut_role and rekrut_role in member.roles:
+            roles_to_remove.append(rekrut_role)
         
         # Usuń role
         if roles_to_remove:
@@ -1253,6 +1380,23 @@ async def slash_test_uprawnienia(interaction: discord.Interaction):
     response += "\n".join([f"- {role}" for role in managing_roles])
     
     await interaction.followup.send(response, ephemeral=True)
+
+@bot.tree.command(name="sprawdz_role", description="Sprawdza ID ról na serwerze")
+async def slash_sprawdz_role(interaction: discord.Interaction):
+    """Sprawdza ID ról na serwerze"""
+    await interaction.response.defer(ephemeral=True)
+    
+    response = "📋 Lista ról na serwerze:\n\n"
+    for role in interaction.guild.roles:
+        response += f"• {role.name}: {role.id}\n"
+    
+    # Podziel odpowiedź na mniejsze części jeśli jest za długa
+    if len(response) > 1900:  # Discord ma limit 2000 znaków
+        parts = [response[i:i+1900] for i in range(0, len(response), 1900)]
+        for part in parts:
+            await interaction.followup.send(part, ephemeral=True)
+    else:
+        await interaction.followup.send(response, ephemeral=True)
 
 # Run the bot
 bot.run(os.getenv('DISCORD_TOKEN')) 
