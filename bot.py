@@ -591,10 +591,3 @@ if __name__ == "__main__":
         try: bot.run(discord_token)
         except discord.errors.LoginFailure: print("BŁĄD KRYTYCZNY: Nieprawidłowy token.")
         except Exception as e: print(f"BŁĄD KRYTYCZNY startu: {e}"); traceback.print_exc()
-
-Chodzi mi o to że podmieniłeś funkcję ```python
-async def dodaj_punkt(interaction: discord.Interaction, member: discord.Member, typ: str, powod: str = None) -> bool:
-``` na ```python
-async def _dodaj_punkt_z_rolami(interaction: discord.Interaction, member: discord.Member, typ: str, powod: Optional[str] = None) -> bool:
-``` ale komendy nadal odwołują się do ```python
-await dodaj_punkt(interaction, member, "plusy", powod)
