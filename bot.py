@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import discord
-print("<<<<<<<<<<<<<<<<<<< STARTUJĘ KOD z 27.04 13:32 - WERSJA Z POPRAWKAMI >>>>>>>>>>>>>>>>>") # Zmień czas na aktualny
 from discord import app_commands
 from discord.ext import commands
 import json
@@ -10,9 +9,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 from typing import Literal, Optional
 import traceback
-# !!! DODAJ TĘ LINIĘ - ZMIEŃ DATĘ/GODZINĘ PRZY KAŻDEJ PRÓBIE !!!
-print("--- URUCHAMIAM WERSJĘ KODU: 27.04 13:00 ---")
-# !!! KONIEC DODANEJ LINII !!!
+
 # --- Konfiguracja Początkowa ---
 load_dotenv()
 # !!! Upewnij się, że ID serwera jest poprawne !!!
@@ -92,7 +89,7 @@ POINT_ROLE_LEVELS_MAP = {
 
 # --- Kanały Logowania ---
 class Kanaly:
-    # TODO: Wstaw prawdziwe ID kanałów
+    # TODO: Wstaw prawdziwe ID
     LOGI_HR = 1234567890
     LOGI_PUNKTY = 1234567890
     LOGI_AWANSE = 1234567890
@@ -101,9 +98,8 @@ class Kanaly:
 pracownicy = {}
 json_lock = asyncio.Lock()
 
-# --- Funkcje Pomocnicze (JSON, Uprawnienia, Logowanie) ---
+# --- Funkcje Pomocnicze ---
 async def zapisz_pracownikow():
-    """Bezpiecznie zapisuje dane pracowników do pliku JSON."""
     async with json_lock:
         try:
             with open(JSON_FILE, 'w', encoding='utf-8') as f: json.dump(pracownicy, f, ensure_ascii=False, indent=4)
@@ -111,7 +107,6 @@ async def zapisz_pracownikow():
         except Exception as e: print(f"[ERROR] Błąd zapisywania {JSON_FILE}: {str(e)}"); traceback.print_exc(); return False
 
 async def wczytaj_pracownikow():
-    """Wczytuje dane pracowników z pliku JSON."""
     global pracownicy
     async with json_lock:
         try:
@@ -138,15 +133,13 @@ def is_manager():
     """Dekorator @app_commands.check sprawdzający uprawnienia zarządzające."""
     async def predicate(interaction: discord.Interaction) -> bool:
         user_to_check = interaction.user
-        # Sprawdź czy użytkownik jest Member (na serwerze), a nie User (np. w DM)
         if not isinstance(user_to_check, discord.Member):
             guild = interaction.guild
             if guild: user_to_check = guild.get_member(interaction.user.id)
-            if not isinstance(user_to_check, discord.Member): allowed = False # Nie można sprawdzić ról
+            if not isinstance(user_to_check, discord.Member): allowed = False
             else: allowed = _ma_wymagane_uprawnienia(user_to_check)
         else: allowed = _ma_wymagane_uprawnienia(user_to_check)
 
-        # Wyślij wiadomość tylko jeśli interakcja nie została już zakończona (np. przez defer)
         if not allowed and not interaction.response.is_done():
             await interaction.response.send_message("❌ Nie masz uprawnień do użycia tej komendy!", ephemeral=True)
         elif not allowed:
@@ -156,10 +149,15 @@ def is_manager():
 
 def czy_jest_zatrudniony(member: discord.Member) -> bool:
     """Sprawdza czy użytkownik jest w bazie LUB ma rolę pracowniczą (bez auto-dodawania)."""
+    # Usunięto automatyczne dodawanie do bazy danych
     if not member or not isinstance(member, discord.Member): return False
-    if str(member.id) in pracownicy: return True
+    if str(member.id) in pracownicy:
+        # print(f"[DEBUG Zatrudnienie] {member.name} jest w bazie.") # Opcjonalne logowanie
+        return True
     user_role_ids = {role.id for role in member.roles}
-    return any(role_id in user_role_ids for role_id in ROLE_PRACOWNICZE_WSZYSTKIE)
+    ma_role = any(role_id in user_role_ids for role_id in ROLE_PRACOWNICZE_WSZYSTKIE)
+    # print(f"[DEBUG Zatrudnienie] {member.name} {'ma' if ma_role else 'nie ma'} roli pracowniczej.") # Opcjonalne logowanie
+    return ma_role
 
 async def log_to_channel(bot_instance: commands.Bot, channel_id: int, message: str = None, embed: discord.Embed = None):
     """Wysyła wiadomość lub embed na określony kanał."""
@@ -173,7 +171,6 @@ async def log_to_channel(bot_instance: commands.Bot, channel_id: int, message: s
 # --- Funkcja Punktów (Wersja z Rolami Poziomowymi) ---
 async def _dodaj_punkt_z_rolami(interaction: discord.Interaction, member: discord.Member, typ: str, powod: Optional[str] = None) -> bool:
     """Zarządza punktami i rolami poziomowymi 1/3, 2/3, 3/3."""
-    # Ta funkcja jest kluczowa dla działania /plus, /minus, /upomnienie z rolami
     try:
         member_id_str = str(member.id)
         log_prefix = f"[DEBUG RolePoints][{typ}][{member.name}]"
@@ -325,19 +322,16 @@ class CustomBot(commands.Bot):
     def __init__(self):
         super().__init__(intents=intents, command_prefix="!") # Prefix wymagany
 
-# Wewnątrz klasy CustomBot - WERSJA NORMALNA (OSTATECZNA)
-async def setup_hook(self):
-    print("Rozpoczynam normalny setup hook...")
-    await wczytaj_pracownikow()
-    try:
-        # Synchronizuj tylko dla głównego serwera
-        await self.tree.sync(guild=GUILD_OBJ)
-        print(f"Komendy zsynchronizowane dla serwera {GUILD_ID}")
-    except discord.errors.Forbidden as e:
-        print(f"BŁĄD KRYTYCZNY: Bot nie ma uprawnień do synchronizacji komend na {GUILD_ID}! ({e})")
-    except Exception as e:
-        print(f"Błąd synchronizacji dla {GUILD_ID}: {str(e)}"); traceback.print_exc()
-    print("Normalny Setup hook zakończony!")
+    async def setup_hook(self):
+        print("Rozpoczynam normalny setup hook...")
+        await wczytaj_pracownikow()
+        try:
+            # Synchronizuj tylko dla głównego serwera
+            await self.tree.sync(guild=GUILD_OBJ)
+            print(f"Komendy zsynchronizowane dla serwera {GUILD_ID}")
+        except discord.errors.Forbidden as e: print(f"BŁĄD KRYTYCZNY: Bot nie ma uprawnień do synchronizacji komend na {GUILD_ID}! ({e})")
+        except Exception as e: print(f"Błąd synchronizacji dla {GUILD_ID}: {str(e)}"); traceback.print_exc()
+        print("Normalny Setup hook zakończony!")
 
     async def on_ready(self):
         print(f'Bot zalogowany jako {self.user.name} ({self.user.id}), discord.py {discord.__version__}')
@@ -596,9 +590,9 @@ async def force_sync(interaction: discord.Interaction):
 
 # --- Uruchomienie Bota ---
 if __name__ == "__main__":
-    discord_token = os.getenv('DISCORD_TOKEN')
-    if not discord_token: print("BŁĄD KRYTYCZNY: Brak DISCORD_TOKEN w .env!")
-    else:
-        try: bot.run(discord_token)
-        except discord.errors.LoginFailure: print("BŁĄD KRYTYCZNY: Nieprawidłowy token.")
-        except Exception as e: print(f"BŁĄD KRYTYCZNY startu: {e}"); traceback.print_exc()
+    discord_token = os.getenv('DISCORD_TOKEN')
+    if not discord_token: print("BŁĄD KRYTYCZNY: Brak DISCORD_TOKEN w .env!")
+    else:
+        try: bot.run(discord_token)
+        except discord.errors.LoginFailure: print("BŁĄD KRYTYCZNY: Nieprawidłowy token.")
+        except Exception as e: print(f"BŁĄD KRYTYCZNY startu: {e}"); traceback.print_exc()
