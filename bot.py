@@ -325,15 +325,20 @@ class CustomBot(commands.Bot):
     def __init__(self):
         super().__init__(intents=intents, command_prefix="!") # Prefix wymagany
 
-    async def setup_hook(self):
-        print("Rozpoczynam setup hook...")
-        await wczytaj_pracownikow()
-        try:
-            await self.tree.sync(guild=GUILD_OBJ) # Synchronizuj tylko dla głównego serwera
-            print(f"Komendy zsynchronizowane dla serwera {GUILD_ID}")
-        except discord.errors.Forbidden as e: print(f"BŁĄD KRYTYCZNY: Bot nie ma uprawnień do synchronizacji komend na {GUILD_ID}! ({e})")
-        except Exception as e: print(f"Błąd synchronizacji dla {GUILD_ID}: {str(e)}"); traceback.print_exc()
-        print("Setup hook zakończony!")
+  # Wewnątrz klasy CustomBot
+async def setup_hook(self):
+    # === KROK 1: TYMCZASOWE CZYSZCZENIE GLOBALNE - URUCHOM RAZ I ZATRZYMAJ ===
+    print("!!! DEBUG KROK 1: Rozpoczynam czyszczenie komend GLOBALNYCH !!!")
+    try:
+        print("!!! DEBUG KROK 1: Wywołuję clear_commands(guild=None)...")
+        self.tree.clear_commands(guild=None) # guild=None czyści GLOBALNE
+        await self.tree.sync() # Synchronizuj GLOBALNIE po wyczyszczeniu
+        print("!!! DEBUG KROK 1: Komendy GLOBALNE wyczyszczone i zsynchronizowane (powinno być pusto). !!!")
+    except Exception as e:
+        print(f"!!! BŁĄD KROK 1 podczas czyszczenia/synchronizacji globalnej: {e} !!!")
+        traceback.print_exc()
+    print("!!! DEBUG KROK 1: ZAKOŃCZONY. Zatrzymaj bota TERAZ i przejdź do Kroku 2 (przywróć kod setup_hook do wersji czyszczącej GUILD). !!!")
+    # ======================================================================
 
     async def on_ready(self):
         print(f'Bot zalogowany jako {self.user.name} ({self.user.id}), discord.py {discord.__version__}')
