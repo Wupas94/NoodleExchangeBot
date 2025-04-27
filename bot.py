@@ -327,17 +327,21 @@ class CustomBot(commands.Bot):
 
   # Wewnątrz klasy CustomBot
 async def setup_hook(self):
-    # === KROK 1: TYMCZASOWE CZYSZCZENIE GLOBALNE - URUCHOM RAZ I ZATRZYMAJ ===
-    print("!!! DEBUG KROK 1: Rozpoczynam czyszczenie komend GLOBALNYCH !!!")
+    # === KROK 2: TYMCZASOWE CZYSZCZENIE DLA SERWERA - URUCHOM RAZ I ZATRZYMAJ ===
+    print("!!! DEBUG KROK 2: Rozpoczynam czyszczenie komend dla SERWERA !!!")
+    await wczytaj_pracownikow() # Potrzebne do działania bota
+
+    print(f"!!! DEBUG KROK 2: Próba WYCZYSZCZENIA komend dla GUILD_ID: {GUILD_ID} !!!")
     try:
-        print("!!! DEBUG KROK 1: Wywołuję clear_commands(guild=None)...")
-        self.tree.clear_commands(guild=None) # guild=None czyści GLOBALNE
-        await self.tree.sync() # Synchronizuj GLOBALNIE po wyczyszczeniu
-        print("!!! DEBUG KROK 1: Komendy GLOBALNE wyczyszczone i zsynchronizowane (powinno być pusto). !!!")
+        self.tree.clear_commands(guild=GUILD_OBJ) # Czyścimy tylko dla TEGO serwera
+        await self.tree.sync(guild=GUILD_OBJ) # Sync dla serwera po wyczyszczeniu
+        print(f"!!! SUKCES KROK 2: Komendy dla serwera {GUILD_ID} zostały WYCZYSZCZONE. !!!")
+    except discord.errors.Forbidden as e:
+        print(f"!!! BŁĄD FORBIDDEN KROK 2 podczas czyszczenia/synchronizacji dla {GUILD_ID}: {e} !!!")
     except Exception as e:
-        print(f"!!! BŁĄD KROK 1 podczas czyszczenia/synchronizacji globalnej: {e} !!!")
+        print(f"!!! BŁĄD KROK 2 podczas czyszczenia/synchronizacji dla {GUILD_ID}: {str(e)} !!!")
         traceback.print_exc()
-    print("!!! DEBUG KROK 1: ZAKOŃCZONY. Zatrzymaj bota TERAZ i przejdź do Kroku 2 (przywróć kod setup_hook do wersji czyszczącej GUILD). !!!")
+    print("!!! DEBUG KROK 2: ZAKOŃCZONY. Zatrzymaj bota TERAZ i przejdź do Kroku 3 (przywróć NORMALNY setup_hook). !!!")
     # ======================================================================
 
     async def on_ready(self):
