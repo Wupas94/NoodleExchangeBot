@@ -1,27 +1,22 @@
+# -*- coding: utf-8 -*-
 import discord
 from discord import app_commands
 from discord.ext import commands
 import json
 import os
-# from enum import Enum # Niekonieczne, jeśli Role to tylko ID
 import asyncio
 from dotenv import load_dotenv
 from datetime import datetime
-from typing import Literal, Optional # Poprawiony import
-import traceback # Import for detailed error logging
+from typing import Literal, Optional
+import traceback
 
-# Load environment variables
+# --- Konfiguracja Początkowa ---
 load_dotenv()
-
-# --- Stałe i Konfiguracja ---
 # !!! Upewnij się, że ID serwera jest poprawne !!!
 GUILD_ID = 1021373051272704130
-GUILD_OBJ = discord.Object(id=GUILD_ID) # Obiekt Discord do synchronizacji komend
-# Lista serwerów (jeśli potrzebujesz dla wielu, ale setup_hook teraz używa tylko GUILD_OBJ)
-# GUILD_IDS = [GUILD_OBJ] # Możesz użyć tej listy jeśli rozszerzysz setup_hook
-
+GUILD_OBJ = discord.Object(id=GUILD_ID)
 JSON_FILE = 'pracownicy.json'
-ITEMS_PER_PAGE = 5 # Dla paginacji /historia, /lista
+ITEMS_PER_PAGE = 7 # Dla paginacji
 
 # --- Role IDs ---
 # !!! SPRAWDŹ DOKŁADNIE KAŻDE ID !!!
@@ -94,7 +89,7 @@ POINT_ROLE_LEVELS_MAP = {
 
 # --- Kanały Logowania ---
 class Kanaly:
-    # TODO: Wstaw prawdziwe ID
+    # TODO: Wstaw prawdziwe ID kanałów
     LOGI_HR = 1234567890
     LOGI_PUNKTY = 1234567890
     LOGI_AWANSE = 1234567890
@@ -105,6 +100,7 @@ json_lock = asyncio.Lock()
 
 # --- Funkcje Pomocnicze (JSON, Uprawnienia, Logowanie) ---
 async def zapisz_pracownikow():
+    """Bezpiecznie zapisuje dane pracowników do pliku JSON."""
     async with json_lock:
         try:
             with open(JSON_FILE, 'w', encoding='utf-8') as f: json.dump(pracownicy, f, ensure_ascii=False, indent=4)
@@ -112,6 +108,7 @@ async def zapisz_pracownikow():
         except Exception as e: print(f"[ERROR] Błąd zapisywania {JSON_FILE}: {str(e)}"); traceback.print_exc(); return False
 
 async def wczytaj_pracownikow():
+    """Wczytuje dane pracowników z pliku JSON."""
     global pracownicy
     async with json_lock:
         try:
@@ -128,45 +125,52 @@ async def wczytaj_pracownikow():
         except Exception as e: print(f"[ERROR] Inny błąd wczytywania {JSON_FILE}: {str(e)}"); traceback.print_exc(); pracownicy = {}; return False
 
 def _ma_wymagane_uprawnienia(member: discord.Member) -> bool:
+    """Sprawdza czy użytkownik ma rolę zarządzającą lub jest adminem."""
     if not member or not isinstance(member, discord.Member): return False
     if member.guild_permissions.administrator: return True
     user_role_ids = {role.id for role in member.roles}
     return any(role_id in user_role_ids for role_id in ROLE_ZARZADZAJACE if role_id is not None)
 
 def is_manager():
+    """Dekorator @app_commands.check sprawdzający uprawnienia zarządzające."""
     async def predicate(interaction: discord.Interaction) -> bool:
         user_to_check = interaction.user
+        # Sprawdź czy użytkownik jest Member (na serwerze), a nie User (np. w DM)
         if not isinstance(user_to_check, discord.Member):
             guild = interaction.guild
             if guild: user_to_check = guild.get_member(interaction.user.id)
-            if not isinstance(user_to_check, discord.Member): allowed = False
+            if not isinstance(user_to_check, discord.Member): allowed = False # Nie można sprawdzić ról
             else: allowed = _ma_wymagane_uprawnienia(user_to_check)
         else: allowed = _ma_wymagane_uprawnienia(user_to_check)
-        if not allowed and not interaction.response.is_done(): await interaction.response.send_message("❌ Nie masz uprawnień!", ephemeral=True)
-        elif not allowed: print("[WARN Perm Check] Interaction already responded to")
+
+        # Wyślij wiadomość tylko jeśli interakcja nie została już zakończona (np. przez defer)
+        if not allowed and not interaction.response.is_done():
+            await interaction.response.send_message("❌ Nie masz uprawnień do użycia tej komendy!", ephemeral=True)
+        elif not allowed:
+             print(f"[WARN Perm Check] Użytkownik {interaction.user} ({interaction.user.id}) nie ma uprawnień, ale interakcja już zakończona.")
         return allowed
     return app_commands.check(predicate)
 
 def czy_jest_zatrudniony(member: discord.Member) -> bool:
-    """Uproszczona: Sprawdza czy użytkownik jest w bazie LUB ma rolę pracowniczą."""
-    # Usunięto automatyczne dodawanie do bazy danych
+    """Sprawdza czy użytkownik jest w bazie LUB ma rolę pracowniczą (bez auto-dodawania)."""
     if not member or not isinstance(member, discord.Member): return False
     if str(member.id) in pracownicy: return True
     user_role_ids = {role.id for role in member.roles}
     return any(role_id in user_role_ids for role_id in ROLE_PRACOWNICZE_WSZYSTKIE)
 
 async def log_to_channel(bot_instance: commands.Bot, channel_id: int, message: str = None, embed: discord.Embed = None):
-    if not channel_id or channel_id == 1234567890: return
+    """Wysyła wiadomość lub embed na określony kanał."""
+    if not channel_id or channel_id == 1234567890: return # Ignoruj placeholder
     channel = bot_instance.get_channel(channel_id)
     if not isinstance(channel, discord.TextChannel): print(f"[ERROR LOG] Kanał {channel_id} nie jest tekstowy."); return
     try: await channel.send(content=message, embed=embed)
     except discord.Forbidden: print(f"[ERROR LOG] Brak uprawnień do pisania na kanale {channel_id}.")
     except Exception as e: print(f"[ERROR LOG] Błąd wysyłania logu na {channel_id}: {e}"); traceback.print_exc()
 
-# --- Funkcja Punktów (Wersja z Rolami Poziomowymi v2) ---
-# Nazwa zmieniona dla jasności z _v2
+# --- Funkcja Punktów (Wersja z Rolami Poziomowymi) ---
 async def _dodaj_punkt_z_rolami(interaction: discord.Interaction, member: discord.Member, typ: str, powod: Optional[str] = None) -> bool:
     """Zarządza punktami i rolami poziomowymi 1/3, 2/3, 3/3."""
+    # Ta funkcja jest kluczowa dla działania /plus, /minus, /upomnienie z rolami
     try:
         member_id_str = str(member.id)
         log_prefix = f"[DEBUG RolePoints][{typ}][{member.name}]"
@@ -181,6 +185,7 @@ async def _dodaj_punkt_z_rolami(interaction: discord.Interaction, member: discor
         if not level_role_ids:
             print(f"{log_prefix} BŁĄD: Nieznany typ punktu: {typ}"); await interaction.followup.send(f"❌ Błąd wewnętrzny.", ephemeral=True); return False
 
+        # Walidacja ról i hierarchii
         roles, missing_roles_info, hierarchy_ok = {}, [], True
         bot_member = interaction.guild.me; bot_top_role_pos = bot_member.top_role.position
         print(f"{log_prefix} Pozycja bota ({bot_member.top_role.name}): {bot_top_role_pos}")
@@ -190,24 +195,24 @@ async def _dodaj_punkt_z_rolami(interaction: discord.Interaction, member: discor
             else:
                 print(f"{log_prefix} Rola Poziom {level}: '{role.name}' (Poz: {role.position})")
                 if role.position >= bot_top_role_pos: print(f"{log_prefix} BŁĄD HIERARCHII: Rola '{role.name}' >= bot!"); hierarchy_ok = False
-        if missing_roles_info: await interaction.followup.send(f"❌ Błąd Konfiguracji: Brakujące role dla '{typ}': {', '.join(missing_roles_info)}!", ephemeral=True); return False
+        if missing_roles_info: await interaction.followup.send(f"❌ Błąd Konf: Brakujące role dla '{typ}': {', '.join(missing_roles_info)}!", ephemeral=True); return False
         if not hierarchy_ok: await interaction.followup.send(f"❌ Błąd Hierarchii: Rola bota ({bot_member.top_role.name}) jest zbyt nisko!", ephemeral=True); return False
         if not bot_member.guild_permissions.manage_roles: await interaction.followup.send("❌ Bot nie ma uprawnień 'Zarządzanie Rolami'!", ephemeral=True); return False
-        print(f"{log_prefix} Walidacja ról i hierarchii OK.")
+        print(f"{log_prefix} Walidacja OK.")
 
+        # Określenie poziomów
         current_level, current_role_obj = 0, None
         user_roles_set = {r.id for r in member.roles}
         for level in [3, 2, 1]:
             role_obj = roles.get(level)
             if role_obj and role_obj.id in user_roles_set: current_level, current_role_obj = level, role_obj; break
         print(f"{log_prefix} Aktualny poziom: {current_level}")
-
-        new_level = current_level + 1
-        osiagnieto_limit = new_level > 3
+        new_level = current_level + 1; osiagnieto_limit = new_level > 3
         role_to_remove, role_to_add = current_role_obj, roles.get(new_level) if not osiagnieto_limit else None
         final_level_in_db = 0 if osiagnieto_limit else new_level
         print(f"{log_prefix} Nowy poziom: {new_level}, Limit?: {osiagnieto_limit}, Usuń: {role_to_remove}, Dodaj: {role_to_add}")
 
+        # Modyfikacja Ról
         role_action_success = True; reason = f"Punkt {typ} ({new_level if not osiagnieto_limit else 'LIMIT'}) przez {interaction.user}"
         try:
             current_user_roles_set = {r.id for r in member.roles} # Odśwież
@@ -221,6 +226,7 @@ async def _dodaj_punkt_z_rolami(interaction: discord.Interaction, member: discor
         except discord.HTTPException as e: print(f"[ERROR HTTP] {log_prefix} {e}"); await interaction.followup.send(f"❌ Błąd sieci Discord!", ephemeral=True); role_action_success = False; return False
         except Exception as e: print(f"[ERROR Generyczny] {log_prefix}"); traceback.print_exc(); await interaction.followup.send(f"❌ Błąd zarządzania rolą!", ephemeral=True); role_action_success = False; return False
 
+        # Aktualizacja Bazy i Odpowiedź
         if role_action_success:
             pracownicy[member_id_str][typ] = final_level_in_db
             print(f"{log_prefix} Zapisuję poziom {final_level_in_db} do bazy.")
@@ -250,60 +256,10 @@ async def _dodaj_punkt_z_rolami(interaction: discord.Interaction, member: discor
         except Exception as e2: print(f"[ERROR Handler] Nie można wysłać wiad. o błędzie krytycznym: {e2}")
         return False
 
-# --- Konfiguracja Bota ---
-intents = discord.Intents.default()
-intents.message_content = False # Wyłączone
-intents.members = True
-intents.guilds = True
 
-# --- Klasa Bota i Eventy ---
-class CustomBot(commands.Bot):
-    def __init__(self):
-        super().__init__(intents=intents, command_prefix="!") # Prefix wymagany, ale nieużywany
-
-    async def setup_hook(self):
-        print("Rozpoczynam setup hook...")
-        await wczytaj_pracownikow()
-        try:
-            # Synchronizuj tylko dla głównego serwera
-            await self.tree.sync(guild=GUILD_OBJ)
-            print(f"Komendy zsynchronizowane dla serwera {GUILD_ID}")
-        except discord.errors.Forbidden as e: print(f"BŁĄD KRYTYCZNY: Bot nie ma uprawnień do synchronizacji komend na {GUILD_ID}! ({e})")
-        except Exception as e: print(f"Błąd synchronizacji dla {GUILD_ID}: {str(e)}"); traceback.print_exc()
-        print("Setup hook zakończony!")
-
-    async def on_ready(self):
-        print(f'Bot zalogowany jako {self.user.name} ({self.user.id}), discord.py {discord.__version__}')
-        guild = self.get_guild(GUILD_ID)
-        if guild:
-            print(f'Połączono z serwerem: {guild.name}')
-            bot_member = guild.me
-            if bot_member: print(f"  - Rola bota: {bot_member.top_role.name} (Poz: {bot_member.top_role.position}), Ma Zarządzanie Rolami: {bot_member.guild_permissions.manage_roles}")
-            else: print("  - Nie można pobrać info o bocie.")
-        else: print(f"BŁĄD KRYTYCZNY: Bot nie jest członkiem serwera {GUILD_ID}!")
-        print('-------------------'); print('Bot gotowy!')
-
-    # Globalny handler błędów
-    async def on_tree_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
-        error_msg = f"Wystąpił błąd: {error}"; ephemeral_error = True
-        if isinstance(error, app_commands.CommandOnCooldown): error_msg = f"⏳ Zwolnij! Spróbuj za {error.retry_after:.1f}s."
-        elif isinstance(error, (app_commands.MissingPermissions, app_commands.CheckFailure)): error_msg = "❌ Brak uprawnień."
-        elif isinstance(error, app_commands.BotMissingPermissions): error_msg = f"❌ Bot nie ma uprawnień: `{', '.join(error.missing_permissions)}`."
-        elif isinstance(error, discord.errors.Forbidden): error_msg = "❌ Błąd uprawnień bota / hierarchii ról."
-        elif isinstance(error, app_commands.CommandSignatureMismatch): error_msg = "❌ Niezgodność komendy. Spróbuj /force_sync lub skontaktuj się z adminem." # Dodano podpowiedź
-        print(f"[ERROR Command] '{interaction.command.name if interaction.command else 'N/A'}':"); traceback.print_exception(type(error), error, error.__traceback__)
-        try:
-            if interaction.response.is_done(): await interaction.followup.send(error_msg, ephemeral=ephemeral_error)
-            else: await interaction.response.send_message(error_msg, ephemeral=ephemeral_error)
-        except Exception as e_send: print(f"[ERROR Handler] Nie wysłano wiad. o błędzie: {e_send}")
-
-# --- Inicjalizacja Bota ---
-bot = CustomBot()
-
-# --- Komendy Slash ---
-
-# Pomocnicza funkcja do zmiany stanowiska (bez zmian)
+# --- Funkcja zmiany stanowiska ---
 async def _zmien_stanowisko(interaction: discord.Interaction, member: discord.Member, sciezka_key: str, poziom: int, powod: Optional[str], czy_awans: bool):
+    """Wewnętrzna funkcja do awansu/degradacji."""
     sciezka_awansu = SCIEZKI_MAP.get(sciezka_key)
     nazwa_sciezki = sciezka_key;
     for choice in SCIEZKI_WYBORY:
@@ -355,8 +311,56 @@ async def _zmien_stanowisko(interaction: discord.Interaction, member: discord.Me
     except discord.Forbidden: await interaction.followup.send("❌ Błąd uprawnień bota!", ephemeral=True); return False
     except Exception as e: await interaction.followup.send(f"❌ Błąd: {str(e)}", ephemeral=True); print(f"Błąd w _zmien_stanowisko: {e}"); traceback.print_exc(); return False
 
+# --- Konfiguracja Bota ---
+intents = discord.Intents.default()
+intents.message_content = False # Wyłączone
+intents.members = True
+intents.guilds = True
 
-# --- Implementacje Komend ---
+# --- Klasa Bota i Eventy ---
+class CustomBot(commands.Bot):
+    def __init__(self):
+        super().__init__(intents=intents, command_prefix="!") # Prefix wymagany
+
+    async def setup_hook(self):
+        print("Rozpoczynam setup hook...")
+        await wczytaj_pracownikow()
+        try:
+            await self.tree.sync(guild=GUILD_OBJ) # Synchronizuj tylko dla głównego serwera
+            print(f"Komendy zsynchronizowane dla serwera {GUILD_ID}")
+        except discord.errors.Forbidden as e: print(f"BŁĄD KRYTYCZNY: Bot nie ma uprawnień do synchronizacji komend na {GUILD_ID}! ({e})")
+        except Exception as e: print(f"Błąd synchronizacji dla {GUILD_ID}: {str(e)}"); traceback.print_exc()
+        print("Setup hook zakończony!")
+
+    async def on_ready(self):
+        print(f'Bot zalogowany jako {self.user.name} ({self.user.id}), discord.py {discord.__version__}')
+        guild = self.get_guild(GUILD_ID)
+        if guild:
+            print(f'Połączono z serwerem: {guild.name}')
+            bot_member = guild.me
+            if bot_member: print(f"  - Rola bota: {bot_member.top_role.name} (Poz: {bot_member.top_role.position}), Ma Zarządzanie Rolami: {bot_member.guild_permissions.manage_roles}")
+            else: print("  - Nie można pobrać info o bocie.")
+        else: print(f"BŁĄD KRYTYCZNY: Bot nie jest członkiem serwera {GUILD_ID}!")
+        print('-------------------'); print('Bot gotowy!')
+
+    # Globalny handler błędów
+    async def on_tree_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        error_msg = f"Wystąpił błąd: {error}"; ephemeral_error = True
+        if isinstance(error, app_commands.CommandOnCooldown): error_msg = f"⏳ Zwolnij! Spróbuj za {error.retry_after:.1f}s."
+        elif isinstance(error, (app_commands.MissingPermissions, app_commands.CheckFailure)): error_msg = "❌ Brak uprawnień."
+        elif isinstance(error, app_commands.BotMissingPermissions): error_msg = f"❌ Bot nie ma uprawnień: `{', '.join(error.missing_permissions)}`."
+        elif isinstance(error, discord.errors.Forbidden): error_msg = "❌ Błąd uprawnień bota / hierarchii ról."
+        elif isinstance(error, app_commands.CommandSignatureMismatch): error_msg = "❌ Niezgodność komendy. Spróbuj /force_sync lub skontaktuj się z adminem."
+        print(f"[ERROR Command] '{interaction.command.name if interaction.command else 'N/A'}':"); traceback.print_exception(type(error), error, error.__traceback__)
+        try:
+            if interaction.response.is_done(): await interaction.followup.send(error_msg, ephemeral=ephemeral_error)
+            else: await interaction.response.send_message(error_msg, ephemeral=ephemeral_error)
+        except Exception as e_send: print(f"[ERROR Handler] Nie wysłano wiad. o błędzie: {e_send}")
+
+# --- Inicjalizacja Bota ---
+bot = CustomBot()
+
+# --- Komendy Slash ---
 
 @bot.tree.command(name="test", description="Sprawdza czy bot działa")
 async def slash_test(interaction: discord.Interaction):
