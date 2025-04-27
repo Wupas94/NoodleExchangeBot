@@ -590,9 +590,13 @@ async def force_sync(interaction: discord.Interaction):
 
 # --- Uruchomienie Bota ---
 if __name__ == "__main__":
-    discord_token = os.getenv('DISCORD_TOKEN')
-    if not discord_token: print("BŁĄD KRYTYCZNY: Brak DISCORD_TOKEN w .env!")
-    else:
-        try: bot.run(discord_token)
-        except discord.errors.LoginFailure: print("BŁĄD KRYTYCZNY: Nieprawidłowy token.")
-        except Exception as e: print(f"BŁĄD KRYTYCZNY startu: {e}"); traceback.print_exc()
+    discord_token = os.getenv('DISCORD_TOKEN') # 4 spacje wcięcia
+    if not discord_token: # 4 spacje wcięcia
+        print("BŁĄD KRYTYCZNY: Brak DISCORD_TOKEN w .env!") # 8 spacji wcięcia
+    else: # 4 spacje wcięcia
+        try: # 8 spacji wcięcia
+            bot.run(discord_token) # 12 spacji wcięcia
+        except discord.errors.LoginFailure: # 8 spacji wcięcia
+            print("BŁĄD KRYTYCZNY: Nieprawidłowy token.") # 12 spacji wcięcia
+        except Exception as e: # 8 spacji wcięcia
+            print(f"BŁĄD KRYTYCZNY startu: {e}"); traceback.print_exc() # 12 spacji wcięcia
