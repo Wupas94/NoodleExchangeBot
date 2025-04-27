@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import discord
+print("<<<<<<<<<<<<<<<<<<< STARTUJĘ KOD z 27.04 13:32 - WERSJA Z POPRAWKAMI >>>>>>>>>>>>>>>>>") # Zmień czas na aktualny
 from discord import app_commands
 from discord.ext import commands
 import json
