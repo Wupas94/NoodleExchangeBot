@@ -9,7 +9,9 @@ from dotenv import load_dotenv
 from datetime import datetime
 from typing import Literal, Optional
 import traceback
-
+# !!! DODAJ TĘ LINIĘ - ZMIEŃ DATĘ/GODZINĘ PRZY KAŻDEJ PRÓBIE !!!
+print("--- URUCHAMIAM WERSJĘ KODU: 27.04 13:00 ---")
+# !!! KONIEC DODANEJ LINII !!!
 # --- Konfiguracja Początkowa ---
 load_dotenv()
 # !!! Upewnij się, że ID serwera jest poprawne !!!
