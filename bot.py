@@ -325,24 +325,19 @@ class CustomBot(commands.Bot):
     def __init__(self):
         super().__init__(intents=intents, command_prefix="!") # Prefix wymagany
 
-  # Wewnątrz klasy CustomBot
+# Wewnątrz klasy CustomBot - WERSJA NORMALNA (OSTATECZNA)
 async def setup_hook(self):
-    # === KROK 2: TYMCZASOWE CZYSZCZENIE DLA SERWERA - URUCHOM RAZ I ZATRZYMAJ ===
-    print("!!! DEBUG KROK 2: Rozpoczynam czyszczenie komend dla SERWERA !!!")
-    await wczytaj_pracownikow() # Potrzebne do działania bota
-
-    print(f"!!! DEBUG KROK 2: Próba WYCZYSZCZENIA komend dla GUILD_ID: {GUILD_ID} !!!")
+    print("Rozpoczynam normalny setup hook...")
+    await wczytaj_pracownikow()
     try:
-        self.tree.clear_commands(guild=GUILD_OBJ) # Czyścimy tylko dla TEGO serwera
-        await self.tree.sync(guild=GUILD_OBJ) # Sync dla serwera po wyczyszczeniu
-        print(f"!!! SUKCES KROK 2: Komendy dla serwera {GUILD_ID} zostały WYCZYSZCZONE. !!!")
+        # Synchronizuj tylko dla głównego serwera
+        await self.tree.sync(guild=GUILD_OBJ)
+        print(f"Komendy zsynchronizowane dla serwera {GUILD_ID}")
     except discord.errors.Forbidden as e:
-        print(f"!!! BŁĄD FORBIDDEN KROK 2 podczas czyszczenia/synchronizacji dla {GUILD_ID}: {e} !!!")
+        print(f"BŁĄD KRYTYCZNY: Bot nie ma uprawnień do synchronizacji komend na {GUILD_ID}! ({e})")
     except Exception as e:
-        print(f"!!! BŁĄD KROK 2 podczas czyszczenia/synchronizacji dla {GUILD_ID}: {str(e)} !!!")
-        traceback.print_exc()
-    print("!!! DEBUG KROK 2: ZAKOŃCZONY. Zatrzymaj bota TERAZ i przejdź do Kroku 3 (przywróć NORMALNY setup_hook). !!!")
-    # ======================================================================
+        print(f"Błąd synchronizacji dla {GUILD_ID}: {str(e)}"); traceback.print_exc()
+    print("Normalny Setup hook zakończony!")
 
     async def on_ready(self):
         print(f'Bot zalogowany jako {self.user.name} ({self.user.id}), discord.py {discord.__version__}')
