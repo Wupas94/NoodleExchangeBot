@@ -513,7 +513,45 @@ async def _dodaj_punkt_z_rolami(interaction: discord.Interaction, member: discor
         except Exception as e2:
             print(f"[ERROR Handler] Nie można było wysłać wiadomości o błędzie krytycznym: {e2}")
         return False # Zwracamy False, bo operacja się nie powiodła
+# Przypomnienie kodu komendy (upewnij się, że masz też check_if_owner)
+@bot.tree.command(name="clear_guild_commands", description="[DEV] Usuwa WSZYSTKIE komendy slash bota dla danego serwera.")
+@app_commands.check(check_if_owner) # Użyj tego samego sprawdzania co w force_sync
+@app_commands.describe(guild_id_clear="ID serwera, z którego usunąć komendy bota.")
+async def slash_clear_guild_commands(interaction: discord.Interaction, guild_id_clear: str):
+    """Tymczasowa komenda do czyszczenia komend dla serwera."""
+    await interaction.response.defer(ephemeral=True)
+    print(f"[DEV] Użytkownik {interaction.user} zainicjował clear_guild_commands.")
 
+    try:
+        gid_to_clear = int(guild_id_clear)
+        guild_obj_to_clear = discord.Object(id=gid_to_clear)
+
+        # Możesz dodać sprawdzenie, czy ID jest na liście GUILD_IDS_LIST, jeśli chcesz
+        # if gid_to_clear not in GUILD_IDS_LIST:
+        #     await interaction.followup.send(f"⚠️ Serwer {gid_to_clear} nie jest na liście skonfigurowanych. Mimo to spróbuję wyczyścić.", ephemeral=True)
+
+        print(f"[DEV] Czyszczę komendy dla serwera ID: {gid_to_clear}...")
+        bot.tree.clear_commands(guild=guild_obj_to_clear) # Usuń komendy z drzewa dla tego serwera
+        await bot.tree.sync(guild=guild_obj_to_clear)     # Zsynchronizuj (wyślij pustą listę do Discorda)
+        print(f"[DEV] Komendy dla serwera {gid_to_clear} WYSŁANO PROŚBĘ O WYCZYSZCZENIE.")
+
+        # WAŻNE: Po wyczyszczeniu Discord może potrzebować chwili.
+        # Teoretycznie setup_hook przy następnym restarcie powinien je dodać.
+        # Można też dodać force_sync zaraz po clear, ale czasem lepiej dać Discordowi oddech.
+
+        await interaction.followup.send(f"✅ Wysłano żądanie wyczyszczenia komend dla serwera `{gid_to_clear}`. **ZRESTARTUJ BOTA TERAZ**, aby zarejestrować poprawne komendy. Po restarcie bota, zrestartuj też swojego klienta Discord.", ephemeral=True)
+
+    except ValueError:
+        await interaction.followup.send("❌ Nieprawidłowe ID serwera.", ephemeral=True)
+    except discord.errors.Forbidden as e:
+        error_info = f"🚫 FORBIDDEN: {guild_id_clear} - Brak uprawnień `application.commands`?"
+        print(f"[DEV ERROR][Clear] {error_info} - {e}")
+        await interaction.followup.send(f"Błąd uprawnień przy czyszczeniu dla `{guild_id_clear}`: {e}", ephemeral=True)
+    except Exception as e:
+        error_info = f"❌ ERROR: {guild_id_clear} - {type(e).__name__}: {e}"
+        print(f"[DEV ERROR][Clear] {error_info}")
+        traceback.print_exc()
+        await interaction.followup.send(f"Niespodziewany błąd przy czyszczeniu dla `{guild_id_clear}`: {e}", ephemeral=True)
 
 # --- Funkcja zmiany stanowiska ---
 async def _zmien_stanowisko(interaction: discord.Interaction, member: discord.Member, sciezka_key: str, poziom: int, powod: Optional[str], czy_awans: bool):
