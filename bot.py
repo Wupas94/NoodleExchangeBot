@@ -17,6 +17,7 @@ load_dotenv()
 GUILD_IDS_LIST = [
     1021373051272704130,
     1364669344180863088
+    # Dodaj więcej ID serwerów tutaj, jeśli potrzebujesz
 ]
 # Tworzymy listę obiektów discord.Object dla setup_hook
 GUILD_OBJS = [discord.Object(id=gid) for gid in GUILD_IDS_LIST]
@@ -77,10 +78,7 @@ class Role:
 # --- Ścieżki awansu i mapowanie ---
 SCIEZKA_OCHRONY = [Role.REKRUT, Role.MLODSZY_OCHRONIARZ, Role.OCHRONIARZ, Role.OCHRONIARZ_LICENCJONOWANY, Role.DOSWIADCZONY_OCHRONIARZ, Role.STARSZY_OCHRONIARZ]
 SCIEZKA_GASTRONOMII = [Role.REKRUT, Role.KELNER, Role.ASYSTENT_KUCHARZA, Role.KUCHARZ, Role.SZEF_KUCHNI, Role.OBSLUGA_BARU]
-# Usunięto ścieżki zarządu z automatycznej obsługi - awanse/degradacje zarządzających powinny być bardziej kontrolowane
-# SCIEZKA_ZARZADU = [Role.REKRUT, Role.PRACOWNIK, Role.ASYSTENT_KIEROWNIKA, Role.KIEROWNIK, Role.MENADZER, Role.ZASTEPCA_SZEFA]
-# SCIEZKA_ZARZADU_OCHRONY = [Role.OCHRONA, Role.SZKOLENIOWIEC_OCHRONY, Role.EGZAMINATOR_OCHRONY, Role.ASYSTENT_SZEFA_OCHRONY, Role.ZASTEPCA_SZEFA_OCHRONY, Role.SZEF_OCHRONY]
-SCIEZKI_MAP = {"ochrona": SCIEZKA_OCHRONY, "gastronomia": SCIEZKA_GASTRONOMII} # Usunięto ścieżki zarządu
+SCIEZKI_MAP = {"ochrona": SCIEZKA_OCHRONY, "gastronomia": SCIEZKA_GASTRONOMII}
 SCIEZKI_WYBORY = [app_commands.Choice(name=n.replace('_',' ').title(), value=n) for n in SCIEZKI_MAP.keys()]
 
 # --- Grupy Ról ---
@@ -90,19 +88,16 @@ ROLE_ZARZADZAJACE = [r for r in [
     Role.EGZAMINATOR_OCHRONY, Role.SZKOLENIOWIEC_OCHRONY
 ] if r is not None]
 
-# Role, które definiują, że ktoś jest 'pracownikiem' na ścieżce rozwoju (bez zarządzających)
 ROLE_STANOWISKOWE_SCIEZKI = list(set([
     Role.MLODSZY_OCHRONIARZ, Role.OCHRONIARZ, Role.OCHRONIARZ_LICENCJONOWANY, Role.DOSWIADCZONY_OCHRONIARZ, Role.STARSZY_OCHRONIARZ,
     Role.KELNER, Role.ASYSTENT_KUCHARZA, Role.KUCHARZ, Role.SZEF_KUCHNI, Role.OBSLUGA_BARU
 ]))
 
-# Role ogólne pracownicze + role ze ścieżek + rekrut
 ROLE_PRACOWNICZE_PODSTAWOWE = list(set([
     Role.REKRUT, Role.PRACOWNIK, Role.OCHRONA]
     + ROLE_STANOWISKOWE_SCIEZKI
 ))
 
-# Wszystkie role związane z pracą (zarządzające + podstawowe/ścieżki)
 ROLE_WSZYSTKIE_PRACA = list(set(ROLE_ZARZADZAJACE + ROLE_PRACOWNICZE_PODSTAWOWE))
 
 ROLE_PUNKTOWE = [
@@ -111,7 +106,6 @@ ROLE_PUNKTOWE = [
     Role.UPOMNIENIE1, Role.UPOMNIENIE2, Role.UPOMNIENIE3
 ]
 
-# Role do usunięcia przy /zwolnij (wszystkie pracownicze + punktowe)
 ROLE_WSZYSTKIE_DO_USUNIECIA = set(ROLE_WSZYSTKIE_PRACA + ROLE_PUNKTOWE)
 
 # --- Mapowanie Punktów ---
@@ -129,6 +123,8 @@ LOG_CHANNEL_IDS: Dict[str, int] = {
     "hr": 1307741954938765342,       # Logi zatrudnień, zwolnień itp.
     "punkty": 1307741954938765342,   # Logi plusów, minusów, upomnień
     "awanse": 1307741954938765342    # Logi awansów, degradacji
+    # Upewnij się, że ten kanał (ID: 1307741954938765342) istnieje na WSZYSTKICH serwerach z GUILD_IDS_LIST
+    # i że bot ma uprawnienia do pisania na nim.
 }
 
 # --- Słownik pracowników (teraz zagnieżdżony per serwer) i Lock ---
@@ -159,13 +155,13 @@ async def wczytaj_pracownikow():
                     pracownicy_temp = json.load(f)
                     # Walidacja struktury - oczekujemy dict[str, dict[str, dict]]
                     if isinstance(pracownicy_temp, dict):
-                       pracownicy = pracownicy_temp
-                       print(f"[INFO] Wczytano dane dla {len(pracownicy)} serwerów z {JSON_FILE}")
+                        pracownicy = pracownicy_temp
+                        print(f"[INFO] Wczytano dane dla {len(pracownicy)} serwerów z {JSON_FILE}")
                     else:
-                       print(f"[ERROR] Nieprawidłowa struktura danych w {JSON_FILE}. Oczekiwano słownika serwerów.")
-                       pracownicy = {} # Resetuj do pustego, aby uniknąć błędów
-                       # Można dodać backup tutaj jak poniżej
-                       raise json.JSONDecodeError("Nieprawidłowy główny typ danych", "", 0)
+                        print(f"[ERROR] Nieprawidłowa struktura danych w {JSON_FILE}. Oczekiwano słownika serwerów.")
+                        pracownicy = {} # Resetuj do pustego, aby uniknąć błędów
+                        # Można dodać backup tutaj jak poniżej
+                        raise json.JSONDecodeError("Nieprawidłowy główny typ danych", "", 0)
 
             else:
                 print(f"[INFO] Plik {JSON_FILE} nie istnieje. Tworzę pustą strukturę.")
@@ -230,11 +226,11 @@ def is_manager():
             # print(f"[DEBUG Perm Check] interaction.user jest typu User ({user_to_check.id}), pobieram Member...")
             user_to_check = interaction.guild.get_member(interaction.user.id) # Pobierz obiekt Member
             if not user_to_check: # Nie znaleziono członka (bardzo rzadkie, ale możliwe)
-                 print(f"[ERROR Perm Check] Nie można pobrać obiektu Member dla {interaction.user.id} na serwerze {interaction.guild_id}")
-                 allowed = False
+                print(f"[ERROR Perm Check] Nie można pobrać obiektu Member dla {interaction.user.id} na serwerze {interaction.guild_id}")
+                allowed = False
             else:
-                 # print(f"[DEBUG Perm Check] Pobrany Member: {user_to_check}")
-                 allowed = _ma_wymagane_uprawnienia(user_to_check)
+                # print(f"[DEBUG Perm Check] Pobrany Member: {user_to_check}")
+                allowed = _ma_wymagane_uprawnienia(user_to_check)
         else: # interaction.user jest już typu Member
             # print(f"[DEBUG Perm Check] interaction.user jest typu Member ({user_to_check})")
             allowed = _ma_wymagane_uprawnienia(user_to_check)
@@ -248,6 +244,27 @@ def is_manager():
 
         return allowed
     return app_commands.check(predicate)
+
+# TUTAJ DODANO FUNKCJĘ check_if_owner
+async def check_if_owner(interaction: discord.Interaction) -> bool:
+    """Sprawdza, czy użytkownik, który wywołał interakcję, jest właścicielem bota."""
+    # `bot.is_owner()` sprawdza ID użytkownika względem właściciela(i)
+    # zdefiniowanych w ustawieniach aplikacji bota na Discord Developer Portal.
+    if not await bot.is_owner(interaction.user):
+        # Jeśli użytkownik NIE jest właścicielem, wyślij wiadomość i zwróć False
+        # Używamy try-except na wypadek, gdyby interakcja już otrzymała odpowiedź
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message("❌ Ta komenda jest dostępna tylko dla właściciela bota!", ephemeral=True)
+            else:
+                # Jeśli 'defer' lub inna odpowiedź już poszła, użyj followup
+                await interaction.followup.send("❌ Ta komenda jest dostępna tylko dla właściciela bota!", ephemeral=True)
+        except discord.errors.NotFound: # Interaction might expire
+            print(f"[WARN CheckOwner] Interakcja wygasła przed wysłaniem wiadomości o braku uprawnień dla {interaction.user}.")
+        except Exception as e:
+            print(f"[ERROR CheckOwner] Nie można było wysłać wiadomości o braku uprawnień właściciela: {e}")
+        return False # Sprawdzenie nie powiodło się
+    return True # Sprawdzenie powiodło się, użytkownik jest właścicielem
 
 def czy_jest_zatrudniony(guild_id: int, member: discord.Member) -> bool:
     """Sprawdza czy użytkownik jest w bazie DANEGO SERWERA LUB ma jakąkolwiek rolę pracowniczą/zarządzającą."""
@@ -508,50 +525,12 @@ async def _dodaj_punkt_z_rolami(interaction: discord.Interaction, member: discor
             if interaction.response.is_done():
                 await interaction.followup.send(error_message, ephemeral=True)
             else:
-                 # Jeśli defer się nie wykonał, a response jest możliwy
-                 await interaction.response.send_message(error_message, ephemeral=True)
+                # Jeśli defer się nie wykonał, a response jest możliwy
+                await interaction.response.send_message(error_message, ephemeral=True)
         except Exception as e2:
             print(f"[ERROR Handler] Nie można było wysłać wiadomości o błędzie krytycznym: {e2}")
         return False # Zwracamy False, bo operacja się nie powiodła
-# Przypomnienie kodu komendy (upewnij się, że masz też check_if_owner)
-@bot.tree.command(name="clear_guild_commands", description="[DEV] Usuwa WSZYSTKIE komendy slash bota dla danego serwera.")
-@app_commands.check(check_if_owner) # Użyj tego samego sprawdzania co w force_sync
-@app_commands.describe(guild_id_clear="ID serwera, z którego usunąć komendy bota.")
-async def slash_clear_guild_commands(interaction: discord.Interaction, guild_id_clear: str):
-    """Tymczasowa komenda do czyszczenia komend dla serwera."""
-    await interaction.response.defer(ephemeral=True)
-    print(f"[DEV] Użytkownik {interaction.user} zainicjował clear_guild_commands.")
 
-    try:
-        gid_to_clear = int(guild_id_clear)
-        guild_obj_to_clear = discord.Object(id=gid_to_clear)
-
-        # Możesz dodać sprawdzenie, czy ID jest na liście GUILD_IDS_LIST, jeśli chcesz
-        # if gid_to_clear not in GUILD_IDS_LIST:
-        #     await interaction.followup.send(f"⚠️ Serwer {gid_to_clear} nie jest na liście skonfigurowanych. Mimo to spróbuję wyczyścić.", ephemeral=True)
-
-        print(f"[DEV] Czyszczę komendy dla serwera ID: {gid_to_clear}...")
-        bot.tree.clear_commands(guild=guild_obj_to_clear) # Usuń komendy z drzewa dla tego serwera
-        await bot.tree.sync(guild=guild_obj_to_clear)     # Zsynchronizuj (wyślij pustą listę do Discorda)
-        print(f"[DEV] Komendy dla serwera {gid_to_clear} WYSŁANO PROŚBĘ O WYCZYSZCZENIE.")
-
-        # WAŻNE: Po wyczyszczeniu Discord może potrzebować chwili.
-        # Teoretycznie setup_hook przy następnym restarcie powinien je dodać.
-        # Można też dodać force_sync zaraz po clear, ale czasem lepiej dać Discordowi oddech.
-
-        await interaction.followup.send(f"✅ Wysłano żądanie wyczyszczenia komend dla serwera `{gid_to_clear}`. **ZRESTARTUJ BOTA TERAZ**, aby zarejestrować poprawne komendy. Po restarcie bota, zrestartuj też swojego klienta Discord.", ephemeral=True)
-
-    except ValueError:
-        await interaction.followup.send("❌ Nieprawidłowe ID serwera.", ephemeral=True)
-    except discord.errors.Forbidden as e:
-        error_info = f"🚫 FORBIDDEN: {guild_id_clear} - Brak uprawnień `application.commands`?"
-        print(f"[DEV ERROR][Clear] {error_info} - {e}")
-        await interaction.followup.send(f"Błąd uprawnień przy czyszczeniu dla `{guild_id_clear}`: {e}", ephemeral=True)
-    except Exception as e:
-        error_info = f"❌ ERROR: {guild_id_clear} - {type(e).__name__}: {e}"
-        print(f"[DEV ERROR][Clear] {error_info}")
-        traceback.print_exc()
-        await interaction.followup.send(f"Niespodziewany błąd przy czyszczeniu dla `{guild_id_clear}`: {e}", ephemeral=True)
 
 # --- Funkcja zmiany stanowiska ---
 async def _zmien_stanowisko(interaction: discord.Interaction, member: discord.Member, sciezka_key: str, poziom: int, powod: Optional[str], czy_awans: bool):
@@ -789,7 +768,7 @@ async def _zmien_stanowisko(interaction: discord.Interaction, member: discord.Me
 # Ustawienie intencji - co bot może "widzieć"
 intents = discord.Intents.default()
 intents.message_content = False # Nie potrzebujemy dostępu do treści wiadomości
-intents.members = True       # Potrzebne do śledzenia członków (role, dołączanie itp.)
+intents.members = True       # Potrzebne do śledzenia członków (role, dołączanie itp.) - WYMAGA WŁĄCZENIA W DEVELOPER PORTAL
 intents.guilds = True        # Potrzebne do informacji o serwerach
 
 # --- Klasa Bota i Eventy ---
@@ -855,10 +834,10 @@ class CustomBot(commands.Bot):
              try:
                  bot_member = guild.me
                  if bot_member:
-                     print(f"    - Rola bota: {bot_member.top_role.name if bot_member.top_role else 'Brak'} (Poz: {bot_member.top_role.position if bot_member.top_role else 'N/A'})")
-                     print(f"    - Ma 'Zarządzanie Rolami': {bot_member.guild_permissions.manage_roles}")
-                 else: print("    - Nie można pobrać informacji o bocie na tym serwerze.")
-             except Exception as e: print(f"    - Błąd przy pobieraniu info o bocie: {e}")
+                     print(f"     - Rola bota: {bot_member.top_role.name if bot_member.top_role else 'Brak'} (Poz: {bot_member.top_role.position if bot_member.top_role else 'N/A'})")
+                     print(f"     - Ma 'Zarządzanie Rolami': {bot_member.guild_permissions.manage_roles}")
+                 else: print("     - Nie można pobrać informacji o bocie na tym serwerze.")
+             except Exception as e: print(f"     - Błąd przy pobieraniu info o bocie: {e}")
 
         print(f'---------------------------------------------')
         print(f' Łączna liczba serwerów: {guild_count}')
@@ -883,11 +862,11 @@ class CustomBot(commands.Bot):
         elif isinstance(error, app_commands.BotMissingPermissions):
             error_msg = f"❌ Bot nie ma wymaganych uprawnień Discord: `{', '.join(error.missing_permissions)}`. Poproś administratora o ich nadanie."
         elif isinstance(error, app_commands.CheckFailure):
-            # Ten błąd jest często wynikiem naszego niestandardowego `is_manager()`
-            # Wiadomość o błędzie jest już wysyłana w `is_manager`, więc tutaj możemy nic nie robić lub tylko logować.
+            # Ten błąd jest często wynikiem naszego niestandardowego `is_manager()` lub `check_if_owner()`
+            # Wiadomość o błędzie jest już wysyłana w tych funkcjach, więc tutaj możemy nic nie robić lub tylko logować.
             print(f"[INFO CheckFailure] Sprawdzenie uprawnień nie powiodło się dla {interaction.user} (komenda: {interaction.command.name if interaction.command else 'N/A'}). Wiadomość powinna być już wysłana.")
-            return # Zakończ, bo `is_manager` już odpowiedział
-        elif isinstance(error, discord.errors.Forbidden):
+            return # Zakończ, bo funkcja sprawdzająca już odpowiedziała
+        elif isinstance(original_error, discord.errors.Forbidden): # Zmieniono na original_error
             # Ten błąd często oznacza problem z hierarchią ról lub brakujące uprawnienia bota,
             # które nie zostały złapane przez BotMissingPermissions.
             error_msg = "❌ Błąd Uprawnień lub Hierarchii! Bot nie mógł wykonać akcji. Sprawdź, czy rola bota jest wystarczająco wysoko i ma potrzebne uprawnienia."
@@ -914,6 +893,7 @@ class CustomBot(commands.Bot):
             print(f"Oryginalny Błąd: {type(original_error).__name__}")
             print(f"Wiadomość: {original_error}")
             print(f"Pełny Traceback:")
+            # Użyj traceback.print_exception dla lepszego formatowania
             traceback.print_exception(type(error), error, error.__traceback__)
             print(f"--- KONIEC BŁĘDU KOMENDY ---\n")
 
@@ -925,6 +905,8 @@ class CustomBot(commands.Bot):
             else:
                 # Jeśli żadna odpowiedź nie została wysłana, użyj response
                 await interaction.response.send_message(error_msg, ephemeral=ephemeral_error)
+        except discord.errors.NotFound:
+             print(f"[WARN Handler] Interakcja wygasła przed wysłaniem wiadomości o błędzie: {error_msg}")
         except Exception as e_send:
             # Ostateczność - jeśli nawet wysłanie wiadomości o błędzie zawiedzie
             print(f"[ERROR Handler] Krytyczny błąd: Nie można było wysłać wiadomości o błędzie do użytkownika: {e_send}")
@@ -951,7 +933,12 @@ async def slash_test(interaction: discord.Interaction):
     response_msg += f"ID Serwera: `{guild_id}`\n"
     response_msg += f"Liczba znanych pracowników w JSON dla tego serwera: `{len(guild_data)}`\n"
     response_msg += f"Twoje ID: `{interaction.user.id}`\n"
-    response_msg += f"Czy masz uprawnienia zarządcze (wg bota)?: **{_ma_wymagane_uprawnienia(interaction.user)}**" # Użyj interaction.user (może być Member)
+
+    # Sprawdzamy, czy interaction.user to Member, aby bezpiecznie użyć _ma_wymagane_uprawnienia
+    is_manager_status = "N/A (nie na serwerze)"
+    if isinstance(interaction.user, discord.Member):
+        is_manager_status = f"**{_ma_wymagane_uprawnienia(interaction.user)}**"
+    response_msg += f"Czy masz uprawnienia zarządcze (wg bota)?: {is_manager_status}"
 
     await interaction.response.send_message(response_msg, ephemeral=True)
 
@@ -967,7 +954,9 @@ async def slash_zatrudnij(interaction: discord.Interaction, member: discord.Memb
 
     # Sprawdzenia wstępne (powinny być obsłużone przez dekoratory/handler, ale dla pewności)
     if not interaction.guild or not interaction.guild_id:
-        await interaction.response.send_message("Błąd: Ta komenda musi być użyta na serwerze.", ephemeral=True)
+        # Odpowiedź powinna być wysłana przez is_manager(), ale na wszelki wypadek
+        if not interaction.response.is_done():
+             await interaction.response.send_message("Błąd: Ta komenda musi być użyta na serwerze.", ephemeral=True)
         return
 
     # Defer - operacja może chwilę potrwać (nadawanie ról, zapis do pliku)
@@ -983,26 +972,35 @@ async def slash_zatrudnij(interaction: discord.Interaction, member: discord.Memb
     rekrut_role = guild.get_role(Role.REKRUT)
     pracownik_role = guild.get_role(Role.PRACOWNIK)
 
-    if not rekrut_role or not pracownik_role:
-        await interaction.followup.send(f"❌ Błąd Konfiguracji Ról na tym serwerze! Brak roli 'Rekrut' (ID: {Role.REKRUT}) lub 'Pracownik' (ID: {Role.PRACOWNIK}). Skontaktuj się z administratorem.", ephemeral=True)
+    missing_role_ids = []
+    if not rekrut_role: missing_role_ids.append(f"'Rekrut' (ID: {Role.REKRUT})")
+    if not pracownik_role: missing_role_ids.append(f"'Pracownik' (ID: {Role.PRACOWNIK})")
+
+    if missing_role_ids:
+        await interaction.followup.send(f"❌ Błąd Konfiguracji Ról na tym serwerze! Brakujące role: {', '.join(missing_role_ids)}. Skontaktuj się z administratorem.", ephemeral=True)
         return
 
     bot_member = guild.me
     if not bot_member: await interaction.followup.send("❌ Błąd: Nie można pobrać bota.", ephemeral=True); return
     bot_top_role_pos = bot_member.top_role.position if bot_member.top_role else 0
 
-    if rekrut_role.position >= bot_top_role_pos or pracownik_role.position >= bot_top_role_pos:
+    hierarchy_issue = False
+    if rekrut_role.position >= bot_top_role_pos: hierarchy_issue = True
+    if pracownik_role.position >= bot_top_role_pos: hierarchy_issue = True
+
+    if hierarchy_issue:
         await interaction.followup.send(f"❌ Błąd Hierarchii Ról! Rola bota ({bot_member.top_role.name if bot_member.top_role else 'Brak'}) musi być wyżej niż role 'Rekrut' i 'Pracownik'.", ephemeral=True)
         return
 
     if not bot_member.guild_permissions.manage_roles:
-         await interaction.followup.send("❌ Błąd: Bot nie ma uprawnień 'Zarządzanie Rolami' na tym serwerze!", ephemeral=True)
-         return
+       await interaction.followup.send("❌ Błąd: Bot nie ma uprawnień 'Zarządzanie Rolami' na tym serwerze!", ephemeral=True)
+       return
     # --- Koniec Walidacji Ról ---
 
     guild_data = get_guild_data(guild_id) # Pobierz słownik użytkowników dla TEGO serwera
     roles_to_add_obj: List[discord.Role] = []
     final_message = ""
+    is_new_hire = False # Flaga do logowania
 
     # Sprawdź, czy role są już nadane
     user_has_rekrut = rekrut_role in member.roles
@@ -1016,6 +1014,7 @@ async def slash_zatrudnij(interaction: discord.Interaction, member: discord.Memb
         if member_id_str not in guild_data:
             # Nowy pracownik - tworzymy wpis w JSON
             print(f"[Zatrudnij] Tworzenie nowego wpisu dla {member} na serwerze {guild_id}")
+            is_new_hire = True
             pracownik_data = {
                 "nazwa": str(member), # Zapisz aktualną nazwę
                 "data_zatrudnienia": now_str,
@@ -1031,7 +1030,7 @@ async def slash_zatrudnij(interaction: discord.Interaction, member: discord.Memb
                      "poziom": 0,
                      "operator": str(interaction.user),
                      "typ": "zatrudnienie"
-                }]
+                 }]
             }
             guild_data[member_id_str] = pracownik_data # Dodaj do danych serwera
             final_message = f"✅ Pomyślnie zatrudniono {member.mention} i zarejestrowano w systemie!\n"
@@ -1064,7 +1063,7 @@ async def slash_zatrudnij(interaction: discord.Interaction, member: discord.Memb
             await interaction.followup.send(final_message)
 
             # Logowanie do kanału
-            log_action = "zatrudnił" if member_id_str not in guild_data else "zaktualizował role dla"
+            log_action = "zatrudnił" if is_new_hire else "zaktualizował/potwierdził role dla"
             await log_to_channel(interaction=interaction, log_type="hr", message=f"📄 `{datetime.now().strftime('%H:%M')}` {interaction.user.mention} {log_action} {member.mention}.")
 
     except discord.Forbidden as e:
@@ -1100,12 +1099,12 @@ async def slash_plus(interaction: discord.Interaction, member: discord.Member, p
 async def slash_minus(interaction: discord.Interaction, member: discord.Member, powod: str):
     """Komenda do dodawania minusów."""
     if not powod or powod.isspace():
-         # Sprawdźmy czy interaction już odpowiedziało (np. w is_manager)
-        if not interaction.response.is_done():
-             await interaction.response.send_message("❌ Powód dla minusa jest wymagany!", ephemeral=True)
-        else: # Jeśli is_manager już odpowiedział, użyj followup
-             await interaction.followup.send("❌ Powód dla minusa jest wymagany!", ephemeral=True)
-        return
+       # Sprawdźmy czy interaction już odpowiedziało (np. w is_manager)
+       if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Powód dla minusa jest wymagany!", ephemeral=True)
+       else: # Jeśli is_manager już odpowiedział, użyj followup
+            await interaction.followup.send("❌ Powód dla minusa jest wymagany!", ephemeral=True)
+       return
     # Logika jest w funkcji pomocniczej
     await _dodaj_punkt_z_rolami(interaction, member, "minusy", powod)
 
@@ -1162,14 +1161,14 @@ async def slash_degraduj(
     interaction: discord.Interaction,
     member: discord.Member,
     sciezka: app_commands.Choice[str],
-    poziom: app_commands.Range[int, 1, 5], # Nie można degradować na ostatni (6) poziom, tylko do 5.
+    poziom: app_commands.Range[int, 1, 5], # Nie można degradować na ostatni (6) poziom, tylko do 5. Zakładając ścieżki max 6 ról
     powod: str
 ):
     """Komenda do degradacji pracownika."""
     if not powod or powod.isspace():
-        if not interaction.response.is_done(): await interaction.response.send_message("❌ Powód degradacji jest wymagany!", ephemeral=True)
-        else: await interaction.followup.send("❌ Powód degradacji jest wymagany!", ephemeral=True)
-        return
+       if not interaction.response.is_done(): await interaction.response.send_message("❌ Powód degradacji jest wymagany!", ephemeral=True)
+       else: await interaction.followup.send("❌ Powód degradacji jest wymagany!", ephemeral=True)
+       return
 
     # Defer - zmiana ról i zapis może potrwać
     await interaction.response.defer(ephemeral=False)
@@ -1186,12 +1185,13 @@ async def slash_degraduj(
 async def slash_zwolnij(interaction: discord.Interaction, member: discord.Member, powod: Optional[str] = None):
     """Komenda do całkowitego usunięcia pracownika z systemu."""
     if member.id == interaction.user.id:
-         await interaction.response.send_message("❌ Nie możesz zwolnić samego siebie.", ephemeral=True); return
+        await interaction.response.send_message("❌ Nie możesz zwolnić samego siebie.", ephemeral=True); return
     if member.id == bot.user.id:
-         await interaction.response.send_message("❌ Nie możesz zwolnić mnie!", ephemeral=True); return
+        await interaction.response.send_message("❌ Nie możesz zwolnić mnie!", ephemeral=True); return
     # Sprawdź, czy osoba zwalniana nie ma wyższych uprawnień niż zwalniający (prosta ochrona)
+    # Upewnij się, że interaction.user to Member
     if isinstance(interaction.user, discord.Member) and member.top_role >= interaction.user.top_role and not interaction.user.guild_permissions.administrator:
-         await interaction.response.send_message("❌ Nie możesz zwolnić kogoś z równą lub wyższą rolą.", ephemeral=True); return
+        await interaction.response.send_message("❌ Nie możesz zwolnić kogoś z równą lub wyższą rolą.", ephemeral=True); return
 
     await interaction.response.defer(ephemeral=False) # Odpowiedź widoczna dla innych
 
@@ -1203,18 +1203,25 @@ async def slash_zwolnij(interaction: discord.Interaction, member: discord.Member
     # --- Usuwanie Ról ---
     roles_to_remove_obj: List[discord.Role] = []
     user_role_ids = {r.id for r in member.roles}
-    bot_top_role_pos = guild.me.top_role.position if guild.me.top_role else 0
+    bot_member = guild.me # Pobierzmy obiekt bota na tym serwerze
+    if not bot_member:
+        await interaction.followup.send("❌ Błąd: Nie można pobrać obiektu bota na serwerze.", ephemeral=True)
+        return
+    bot_top_role_pos = bot_member.top_role.position if bot_member.top_role else 0
 
     # Iteruj po WSZYSTKICH rolach do usunięcia zdefiniowanych w konfiguracji
     # Zakładamy, że ROLE_WSZYSTKIE_DO_USUNIECIA mają te same ID na wszystkich serwerach
+    roles_not_removed_due_to_hierarchy = []
     for role_id in ROLE_WSZYSTKIE_DO_USUNIECIA:
         if role_id in user_role_ids:
             role = guild.get_role(role_id)
             # Usuwaj tylko jeśli rola istnieje i jest NIŻEJ niż rola bota
             if role and role.position < bot_top_role_pos:
                 roles_to_remove_obj.append(role)
-            elif role:
-                print(f"[WARN Zwolnij] Nie można usunąć roli {role.name} (ID: {role_id}) - jest na równi/wyżej niż bot lub nie istnieje.")
+            elif role: # Rola istnieje, ale jest za wysoko
+                 print(f"[WARN Zwolnij] Nie można usunąć roli {role.name} (ID: {role_id}) - jest na równi/wyżej niż bot.")
+                 roles_not_removed_due_to_hierarchy.append(role.name)
+            # Jeśli rola == None (nie istnieje na serwerze), nic nie rób
 
     removed_roles_count = 0
     try:
@@ -1223,7 +1230,7 @@ async def slash_zwolnij(interaction: discord.Interaction, member: discord.Member
             removed_roles_count = len(roles_to_remove_obj)
             print(f"[Zwolnij] Usunięto {removed_roles_count} ról dla {member}: {[r.name for r in roles_to_remove_obj]}")
         else:
-            print(f"[Zwolnij] {member} nie posiadał żadnych ról do usunięcia.")
+            print(f"[Zwolnij] {member} nie posiadał żadnych ról do usunięcia (które bot mógł usunąć).")
 
         # --- Usuwanie z JSON ---
         guild_data = get_guild_data(guild_id)
@@ -1246,7 +1253,10 @@ async def slash_zwolnij(interaction: discord.Interaction, member: discord.Member
              final_msg += f"- Usunięto role: {removed_roles_count}.\n"
              # final_msg += f"- Role: {', '.join(r.name for r in roles_to_remove_obj)}\n" # Opcjonalnie, może być długie
         else:
-             final_msg += "- Nie posiadał ról pracowniczych/punktowych do usunięcia.\n"
+             final_msg += "- Nie posiadał ról pracowniczych/punktowych do usunięcia (lub bot nie mógł ich usunąć).\n"
+
+        if roles_not_removed_due_to_hierarchy:
+             final_msg += f"⚠️ Nie usunięto ról (problem z hierarchią): {', '.join(roles_not_removed_due_to_hierarchy)}.\n"
 
         if removed_from_json:
             final_msg += "- Usunięto wpis z bazy danych tego serwera."
@@ -1258,7 +1268,7 @@ async def slash_zwolnij(interaction: discord.Interaction, member: discord.Member
         # Logowanie
         log_msg_base = f"`{datetime.now().strftime('%H:%M')}` {interaction.user.mention} zwolnił {member.mention}"
         log_msg_reason = f" Powód: {powod or '-'}"
-        log_msg_details = f" (Usunięto ról: {removed_roles_count}, Usunięto z JSON: {'Tak' if removed_from_json else 'Nie'})"
+        log_msg_details = f" (Usunięto ról: {removed_roles_count}, Z JSON: {'Tak' if removed_from_json else 'Nie'})"
         await log_to_channel(interaction=interaction, log_type="hr", message=f"🗑️ {log_msg_base}.{log_msg_reason}.{log_msg_details}")
 
     except discord.Forbidden as e:
@@ -1279,11 +1289,32 @@ async def slash_zwolnij(interaction: discord.Interaction, member: discord.Member
 )
 async def slash_historia(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     """Wyświetla dane o pracowniku z pliku JSON."""
-    target_member = member or interaction.user # Jeśli nie podano, sprawdź historię osoby wywołującej
+    # Celuj w podanego członka lub w autora interakcji, jeśli nikt nie został podany
+    target_member = member or interaction.user
+    # Upewnijmy się, że target_member to obiekt Member, a nie User (jeśli interaction.user to User)
+    if not isinstance(target_member, discord.Member):
+        if interaction.guild:
+             target_member = interaction.guild.get_member(target_member.id)
+             if not target_member:
+                 await interaction.response.send_message("❌ Nie można znaleźć tego użytkownika na serwerze.", ephemeral=True)
+                 return
+        else: # DM
+             await interaction.response.send_message("Błąd: Nie można pobrać obiektu Member poza serwerem.", ephemeral=True)
+             return
 
     # Sprawdź uprawnienia, jeśli pytamy o kogoś innego niż my sami
     if target_member.id != interaction.user.id:
-        if not _ma_wymagane_uprawnienia(interaction.user):
+        # Upewnij się, że interaction.user to Member do sprawdzenia uprawnień
+        requesting_member = interaction.user
+        if not isinstance(requesting_member, discord.Member):
+            if interaction.guild:
+                requesting_member = interaction.guild.get_member(interaction.user.id)
+            # Jeśli nadal nie jest Member (np. błąd pobierania), odmów dostępu
+            if not isinstance(requesting_member, discord.Member):
+                 await interaction.response.send_message("❌ Błąd: Nie można zweryfikować Twoich uprawnień na serwerze.", ephemeral=True)
+                 return
+
+        if not _ma_wymagane_uprawnienia(requesting_member):
             await interaction.response.send_message("❌ Nie masz uprawnień do przeglądania historii innych pracowników.", ephemeral=True)
             return
 
@@ -1334,7 +1365,7 @@ async def slash_historia(interaction: discord.Interaction, member: Optional[disc
     if historia:
         historia_str = ""
         # Pokaż tylko ostatnie X wpisów (np. 5)
-        limit = 5
+        limit = 5 # Możesz zmienić limit wyświetlanych wpisów
         for wpis in reversed(historia[-limit:]): # Iteruj od końca
              data = wpis.get('data', 'Brak daty')
              rola = wpis.get('rola', 'Brak roli')
@@ -1342,27 +1373,91 @@ async def slash_historia(interaction: discord.Interaction, member: Optional[disc
              operator = wpis.get('operator', 'System')
              powod = wpis.get('powod')
              emoji = "⬆️" if typ == "awans" else "⬇️" if typ == "degradacja" else "📄" if typ == "zatrudnienie" else "🔄"
-             historia_str += f"`{data[:10]}` {emoji} **{rola}** ({typ}) przez *{operator}*"
+             # Formatuj datę do DD-MM-YYYY HH:MM, jeśli to możliwe
+             try:
+                 data_obj = datetime.strptime(data, "%Y-%m-%d %H:%M:%S")
+                 formatted_data = data_obj.strftime("%d-%m-%Y %H:%M")
+             except (ValueError, TypeError):
+                 formatted_data = data[:16] # Pokaż pierwsze 16 znaków, jeśli format jest inny
+
+             historia_str += f"`{formatted_data}` {emoji} **{rola}** ({typ}) przez *{operator}*"
              if powod: historia_str += f" - Powód: *{powod[:50]}...*" if len(powod) > 50 else f" - Powód: *{powod}*"
              historia_str += "\n"
 
-        embed.add_field(name=f"📜 Historia Stanowisk (ost. {min(limit, len(historia))})", value=historia_str, inline=False)
+        if historia_str: # Upewnij się, że coś jest do wyświetlenia
+             embed.add_field(name=f"📜 Historia Stanowisk (ost. {min(limit, len(historia))})", value=historia_str, inline=False)
+        else:
+             embed.add_field(name="📜 Historia Stanowisk", value="Brak historii zmian stanowisk.", inline=False)
     else:
         embed.add_field(name="📜 Historia Stanowisk", value="Brak historii zmian stanowisk.", inline=False)
 
     # TODO: Dodać paginację dla historii, jeśli jest długa
     # TODO: Dodać wyświetlanie ostrzeżeń tekstowych, jeśli pole "ostrzezenia" jest używane
 
-    await interaction.response.send_message(embed=embed, ephemeral=True) # Historia widoczna tylko dla pytającego (lub managera)
+    # Historia widoczna tylko dla pytającego (lub managera)
+    # Sprawdzamy czy interakcja nie została już obsłużona (np. przez błąd uprawnień)
+    if not interaction.response.is_done():
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    else:
+        # Jeśli interaction.response.is_done() jest True, a nie było błędu uprawnień,
+        # to znaczy, że coś innego (np. defer) już odpowiedziało. Wtedy używamy followup.
+        # Jednak w tym przypadku nie robiliśmy defer, więc ta ścieżka jest mniej prawdopodobna
+        # dla /historia, chyba że wystąpi inny błąd przed wysłaniem.
+        try:
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        except Exception as e:
+             print(f"[ERROR Historia] Nie można wysłać followup dla historii: {e}")
+
+
+# Komenda do czyszczenia komend (tylko dla właściciela)
+@bot.tree.command(name="clear_guild_commands", description="[DEV] Usuwa WSZYSTKIE komendy slash bota dla danego serwera.")
+@app_commands.check(check_if_owner) # Używa dodanej funkcji sprawdzającej
+@app_commands.describe(guild_id_clear="ID serwera, z którego usunąć komendy bota.")
+async def slash_clear_guild_commands(interaction: discord.Interaction, guild_id_clear: str):
+    """Tymczasowa komenda do czyszczenia komend dla serwera."""
+    await interaction.response.defer(ephemeral=True)
+    print(f"[DEV] Użytkownik {interaction.user} zainicjował clear_guild_commands.")
+
+    try:
+        gid_to_clear = int(guild_id_clear)
+        guild_obj_to_clear = discord.Object(id=gid_to_clear)
+
+        # Możesz dodać sprawdzenie, czy ID jest na liście GUILD_IDS_LIST, jeśli chcesz
+        # if gid_to_clear not in GUILD_IDS_LIST:
+        #     await interaction.followup.send(f"⚠️ Serwer {gid_to_clear} nie jest na liście skonfigurowanych. Mimo to spróbuję wyczyścić.", ephemeral=True)
+
+        print(f"[DEV] Czyszczę komendy dla serwera ID: {gid_to_clear}...")
+        bot.tree.clear_commands(guild=guild_obj_to_clear) # Usuń komendy z drzewa dla tego serwera
+        await bot.tree.sync(guild=guild_obj_to_clear)     # Zsynchronizuj (wyślij pustą listę do Discorda)
+        print(f"[DEV] Komendy dla serwera {gid_to_clear} WYSŁANO PROŚBĘ O WYCZYSZCZENIE.")
+
+        # WAŻNE: Po wyczyszczeniu Discord może potrzebować chwili.
+        # Teoretycznie setup_hook przy następnym restarcie powinien je dodać.
+        # Można też dodać force_sync zaraz po clear, ale czasem lepiej dać Discordowi oddech.
+
+        await interaction.followup.send(f"✅ Wysłano żądanie wyczyszczenia komend dla serwera `{gid_to_clear}`. **ZRESTARTUJ BOTA TERAZ**, aby zarejestrować poprawne komendy. Po restarcie bota, zrestartuj też swojego klienta Discord.", ephemeral=True)
+
+    except ValueError:
+        await interaction.followup.send("❌ Nieprawidłowe ID serwera.", ephemeral=True)
+    except discord.errors.Forbidden as e:
+        error_info = f"🚫 FORBIDDEN: {guild_id_clear} - Brak uprawnień `application.commands`?"
+        print(f"[DEV ERROR][Clear] {error_info} - {e}")
+        await interaction.followup.send(f"Błąd uprawnień przy czyszczeniu dla `{guild_id_clear}`: {e}", ephemeral=True)
+    except Exception as e:
+        error_info = f"❌ ERROR: {guild_id_clear} - {type(e).__name__}: {e}"
+        print(f"[DEV ERROR][Clear] {error_info}")
+        traceback.print_exc()
+        await interaction.followup.send(f"Niespodziewany błąd przy czyszczeniu dla `{guild_id_clear}`: {e}", ephemeral=True)
+
 
 # --- Uruchomienie Bota ---
 if __name__ == "__main__":
     BOT_TOKEN = os.getenv("DISCORD_TOKEN")
     if not BOT_TOKEN:
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("!!!  BŁĄD KRYTYCZNY: Brak tokenu bota w zmiennej       !!!")
-        print("!!!  środowiskowej DISCORD_TOKEN. Ustaw go w systemie  !!!")
-        print("!!!  lub pliku .env i uruchom ponownie.                !!!")
+        print("!!!  BŁĄD KRYTYCZNY: Brak tokenu bota w zmiennej        !!!")
+        print("!!!  środowiskowej DISCORD_TOKEN. Ustaw go w systemie    !!!")
+        print("!!!  lub pliku .env i uruchom ponownie.                 !!!")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     else:
         try:
@@ -1370,17 +1465,17 @@ if __name__ == "__main__":
             bot.run(BOT_TOKEN)
         except discord.PrivilegedIntentsRequired:
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print("!!!  BŁĄD KRYTYCZNY: Brak uprawnień Privileged Intents!  !!!")
-            print("!!!  Bot wymaga 'Server Members Intent'. Włącz go w      !!!")
-            print("!!!  ustawieniach bota na portalu Discord Developer.     !!!")
+            print("!!!  BŁĄD KRYTYCZNY: Brak uprawnień Privileged Intents!    !!!")
+            print("!!!  Bot wymaga 'Server Members Intent'. Włącz go w       !!!")
+            print("!!!  ustawieniach bota na portalu Discord Developer.      !!!")
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         except discord.LoginFailure:
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print("!!!  BŁĄD KRYTYCZNY: Nieprawidłowy token bota!          !!!")
-            print("!!!  Sprawdź, czy token w DISCORD_TOKEN jest poprawny.  !!!")
+            print("!!!  BŁĄD KRYTYCZNY: Nieprawidłowy token bota!            !!!")
+            print("!!!  Sprawdź, czy token w DISCORD_TOKEN jest poprawny.   !!!")
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         except Exception as e:
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print(f"!!!  Nieoczekiwany błąd podczas uruchamiania bota: {e}   !!!")
+            print(f"!!!  Nieoczekiwany błąd podczas uruchamiania bota: {e}      !!!")
             traceback.print_exc()
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
