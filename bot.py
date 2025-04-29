@@ -95,9 +95,9 @@ POINT_ROLE_LEVELS_MAP = {
 # --- Kanały Logowania ---
 class Kanaly:
     # TODO: Rozważ trzymanie ID kanałów per serwer (np. w pliku config)
-    LOGI_HR = 1234567890
-    LOGI_PUNKTY = 1234567890
-    LOGI_AWANSE = 1234567890
+    LOGI_HR = 1307741954938765342
+    LOGI_PUNKTY = 1307741954938765342
+    LOGI_AWANSE = 1307741954938765342
 
 # --- Słownik pracowników (teraz zagnieżdżony per serwer) i Lock ---
 pracownicy = {} # Klucz: str(guild_id), Wartość: dict pracowników dla tego serwera
