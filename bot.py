@@ -15,8 +15,8 @@ load_dotenv()
 # !!! Lista ID serwerów, na których bot ma działać !!!
 # Używamy teraz listy ID liczbowych
 GUILD_IDS_LIST = [
-    1021373051272704130,
-    1364669344180863088
+    1021373051272704130
+
     # Dodaj więcej ID serwerów tutaj, jeśli potrzebujesz
 ]
 # Tworzymy listę obiektów discord.Object dla setup_hook
